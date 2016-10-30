@@ -1300,7 +1300,7 @@ var EditorViewModel = (function() {
       logGA('get_complexity');
       self.complexity('');
 
-      $.post("/metadata/api/optimizer_api/query_complexity", {
+      $.post("/notebook/api/optimizer/query_risk", {
         snippet: ko.mapping.toJSON(self.getContext())
       }, function(data) {
         if (data.status == 0) {
