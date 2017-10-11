@@ -56,7 +56,8 @@ var ApiHelper = (function () {
   var DOCUMENTS_API = "/desktop/api2/doc/";
   var DOCUMENTS_SEARCH_API = "/desktop/api2/docs/";
   var FETCH_CONFIG = '/desktop/api2/get_config/';
-  var HDFS_API_PREFIX = "/filebrowser/view=";
+  var HDFS_API_PREFIX = "/filebrowser/view=/";
+  var ADLS_API_PREFIX = "/filebrowser/view=adl:/";
   var GIT_API_PREFIX = "/desktop/api/vcs/contents/";
   var S3_API_PREFIX = "/filebrowser/view=S3A://";
   var IMPALA_INVALIDATE_API = '/impala/api/invalidate';
@@ -115,6 +116,10 @@ var ApiHelper = (function () {
       $.totalStorage(self.getAssistCacheIdentifier({ sourceType: 'hdfs' }), {});
     });
 
+    huePubSub.subscribe('assist.clear.adls.cache', function () {
+      $.totalStorage(self.getAssistCacheIdentifier({ sourceType: 'adls' }), {});
+    });
+
     huePubSub.subscribe('assist.clear.git.cache', function () {
       $.totalStorage(self.getAssistCacheIdentifier({ sourceType: 'git' }), {});
     });
@@ -145,6 +150,7 @@ var ApiHelper = (function () {
         clearAll: true
       });
       $.totalStorage(self.getAssistCacheIdentifier({ sourceType: 'hdfs' }), {});
+      $.totalStorage(self.getAssistCacheIdentifier({ sourceType: 'adls' }), {});
       $.totalStorage(self.getAssistCacheIdentifier({ sourceType: 'git' }), {});
       $.totalStorage(self.getAssistCacheIdentifier({ sourceType: 's3' }), {});
       $.totalStorage(self.getAssistCacheIdentifier({ sourceType: 'collections' }), {});
@@ -307,6 +313,7 @@ var ApiHelper = (function () {
       if (options.errorCallback) {
         options.errorCallback(errorMessage);
       }
+      return errorMessage;
     };
   };
 
@@ -390,7 +397,10 @@ var ApiHelper = (function () {
    */
   ApiHelper.prototype.fetchHdfsPath = function (options) {
     var self = this;
-    var url = HDFS_API_PREFIX + "/" + options.pathParts.join("/") + '?format=json&sortby=name&descending=false&pagesize=' + (options.pageSize || 500) + '&pagenum=' + (options.page || 1);
+    if (options.pathParts.length > 0 && (options.pathParts[0] === '/' || options.pathParts[0] === '')) {
+      options.pathParts.shift();
+    }
+    var url = HDFS_API_PREFIX + options.pathParts.join("/") + '?format=json&sortby=name&descending=false&pagesize=' + (options.pageSize || 500) + '&pagenum=' + (options.page || 1);
     if (options.filter) {
       url += '&filter=' + options.filter;
     }
@@ -424,6 +434,61 @@ var ApiHelper = (function () {
 
     return fetchCached.bind(self)($.extend({}, options, {
       sourceType: 'hdfs',
+      url: url,
+      fetchFunction: fetchFunction
+    }));
+  };
+
+  /**
+   * @param {Object} options
+   * @param {Function} options.successCallback
+   * @param {Function} [options.errorCallback]
+   * @param {boolean} [options.silenceErrors]
+   * @param {Number} [options.timeout]
+   * @param {Object} [options.editor] - Ace editor
+   *
+   * @param {string[]} options.pathParts
+   * @param {number} [options.pageSize] - Default 500
+   * @param {number} [options.page] - Default 1
+   * @param {string} [options.filter]
+   */
+  ApiHelper.prototype.fetchAdlsPath = function (options) {
+    var self = this;
+    options.pathParts.shift();
+    var url = ADLS_API_PREFIX + options.pathParts.join("/") + '?format=json&sortby=name&descending=false&pagesize=' + (options.pageSize || 500) + '&pagenum=' + (options.page || 1);
+    if (options.filter) {
+      url += '&filter=' + options.filter;
+    }
+    var fetchFunction = function (storeInCache) {
+      if (options.timeout === 0) {
+        self.assistErrorCallback(options)({ status: -1 });
+        return;
+      }
+      return $.ajax({
+        dataType: "json",
+        url: url,
+        timeout: options.timeout,
+        success: function (data) {
+          if (!data.error && !self.successResponseIsError(data) && typeof data.files !== 'undefined' && data.files !== null) {
+            if (data.files.length > 2 && !options.filter) {
+              storeInCache(data);
+            }
+            options.successCallback(data);
+          } else {
+            self.assistErrorCallback(options)(data);
+          }
+        }
+      })
+      .fail(self.assistErrorCallback(options))
+      .always(function () {
+        if (typeof options.editor !== 'undefined' && options.editor !== null) {
+          options.editor.hideSpinner();
+        }
+      });
+    };
+
+    return fetchCached.bind(self)($.extend({}, options, {
+      sourceType: 'adls',
       url: url,
       fetchFunction: fetchFunction
     }));
@@ -589,7 +654,7 @@ var ApiHelper = (function () {
    */
   ApiHelper.prototype.fetchSolrCollection = function (options) {
     var self = this;
-    var url = SOLR_FIELDS_API;
+    var url = SOLR_FIELDS_API  + '?name=' + options.collectionName;
     var fetchFunction = function (storeInCache) {
       if (options.timeout === 0) {
         self.assistErrorCallback(options)({ status: -1 });
@@ -598,10 +663,7 @@ var ApiHelper = (function () {
       $.ajax({
         dataType: "json",
         url: url,
-        data: {
-          name: options.collectionName
-        },
-        type: 'POST',
+        type: 'GET',
         timeout: options.timeout,
         success: function (data) {
           if (!data.error && !self.successResponseIsError(data) && typeof data.schema !== 'undefined' && data.schema !== null) {
@@ -810,25 +872,33 @@ var ApiHelper = (function () {
    * @param {Function} options.successCallback
    * @param {Function} [options.errorCallback]
    * @param {boolean} [options.silenceErrors]
+   * @param {boolean} [options.fetchContents]
    *
    * @param {number} options.uuid
    */
   ApiHelper.prototype.fetchDocument = function (options) {
     var self = this;
+    var promise = $.Deferred();
     $.ajax({
       url: DOCUMENTS_API,
       data: {
-        uuid: options.uuid
+        uuid: options.uuid,
+        data: !!options.fetchContents
       },
       success: function (data) {
         if (! self.successResponseIsError(data)) {
-          options.successCallback(data);
+          promise.resolve(data)
         } else {
-          self.assistErrorCallback(options)(data);
+          promise.reject(self.assistErrorCallback({
+            silenceErrors: options.silenceErrors
+          }));
         }
       }
     })
-    .fail(self.assistErrorCallback(options));
+    .fail(function (errorResponse) {
+      promise.reject(self.assistErrorHandler(errorResponse))
+    });
+    return promise;
   };
 
   /**
@@ -842,7 +912,7 @@ var ApiHelper = (function () {
    */
   ApiHelper.prototype.createDocumentsFolder = function (options) {
     var self = this;
-    self.simplePost("/desktop/api2/doc/mkdir", {
+    self.simplePost(DOCUMENTS_API + 'mkdir', {
       parent_uuid: ko.mapping.toJSON(options.parentUuid),
       name: ko.mapping.toJSON(options.name)
     }, options);
@@ -859,7 +929,7 @@ var ApiHelper = (function () {
    */
   ApiHelper.prototype.updateDocument = function (options) {
     var self = this;
-    self.simplePost("/desktop/api2/doc/update", {
+    self.simplePost(DOCUMENTS_API + 'update', {
       uuid: ko.mapping.toJSON(options.uuid),
       name: options.name
     }, options);
@@ -877,7 +947,7 @@ var ApiHelper = (function () {
   ApiHelper.prototype.uploadDocument = function (options) {
     var self = this;
     $.ajax({
-      url: '/desktop/api2/doc/import',
+      url: DOCUMENTS_API + 'import',
       type: 'POST',
       success: function (data) {
         if (! self.successResponseIsError(data)) {
@@ -913,7 +983,7 @@ var ApiHelper = (function () {
    */
   ApiHelper.prototype.moveDocument = function (options) {
     var self = this;
-    self.simplePost("/desktop/api2/doc/move", {
+    self.simplePost(DOCUMENTS_API + 'move', {
       source_doc_uuid: ko.mapping.toJSON(options.sourceId),
       destination_doc_uuid: ko.mapping.toJSON(options.destinationId)
     }, options);
@@ -930,7 +1000,7 @@ var ApiHelper = (function () {
    */
   ApiHelper.prototype.deleteDocument = function (options) {
     var self = this;
-    self.simplePost("/desktop/api2/doc/delete", {
+    self.simplePost(DOCUMENTS_API + 'delete', {
       uuid: ko.mapping.toJSON(options.uuid),
       skip_trash: ko.mapping.toJSON(options.skipTrash || false)
     }, options);
@@ -946,7 +1016,7 @@ var ApiHelper = (function () {
    */
   ApiHelper.prototype.restoreDocument = function (options) {
     var self = this;
-    self.simplePost("/desktop/api2/doc/restore", {
+    self.simplePost(DOCUMENTS_API + 'restore', {
       uuids: ko.mapping.toJSON(options.uuids)
     }, options);
   };

@@ -1193,7 +1193,11 @@ ${ assist.assistPanel() }
         }
 
         for (var i = 0; i < type.args.length; i++) {
-          self[type.args[i].name].subscribe(viewModel.createWizard.guessFieldTypes);
+          self[type.args[i].name].subscribe(function(newVal) {
+            if (newVal) { // Double call on non File selection otherwise
+              viewModel.createWizard.guessFieldTypes();
+            }
+          });
         }
       }
 
@@ -1257,19 +1261,19 @@ ${ assist.assistPanel() }
       self.path = ko.observable('');
       self.path.subscribe(function(val) {
         if (val) {
-          vm.createWizard.guessFormat();
-          vm.createWizard.destination.nonDefaultLocation(val);
+          wizard.guessFormat();
+          wizard.destination.nonDefaultLocation(val);
         }
         resizeElements();
       });
       self.isObjectStore = ko.computed(function() {
-        return self.inputFormat() == 'file' && /^s3a:\/\/.*$/.test(self.path());
+        return self.inputFormat() == 'file' && /^(s3a|adl):\/.*$/.test(self.path());
       });
       self.isObjectStore.subscribe(function(newVal) {
-        vm.createWizard.destination.useDefaultLocation(!newVal);
+        wizard.destination.useDefaultLocation(!newVal);
       });
       // Rdbms
-      self.rdbmsMode = ko.observable('');
+      self.rdbmsMode = ko.observable('customRdbms');
       self.rdbmsMode.subscribe(function (val) {
         self.rdbmsTypes(null);
         self.rdbmsType('');
@@ -1412,6 +1416,10 @@ ${ assist.assistPanel() }
         return self.table().indexOf('.') > 0 ? self.table().split('.', 2)[0] : 'default';
       });
       self.table.subscribe(function(val) {
+        if (val) {
+          wizard.guessFormat();
+          wizard.destination.nonDefaultLocation(val);
+        }
         resizeElements();
       });
       self.apiHelperType = ko.observable('${ source_type }');
@@ -1423,17 +1431,19 @@ ${ assist.assistPanel() }
       self.format = ko.observable();
       self.format.subscribe(function(newVal) {
         if (typeof newVal.hasHeader !== 'undefined') {
-          vm.createWizard.destination.hasHeader(newVal.hasHeader());
+          wizard.destination.hasHeader(newVal.hasHeader());
           newVal.hasHeader.subscribe(function(newVal) {
-            vm.createWizard.destination.hasHeader(newVal);
+            wizard.destination.hasHeader(newVal);
           });
         }
 
         if (typeof newVal.fieldSeparator !== 'undefined') {
-          vm.createWizard.destination.useCustomDelimiters(newVal.fieldSeparator() != ',');
-          vm.createWizard.destination.customFieldDelimiter(newVal.fieldSeparator());
+          wizard.destination.useCustomDelimiters(newVal.fieldSeparator() != ',');
+          wizard.destination.customFieldDelimiter(newVal.fieldSeparator());
           newVal.fieldSeparator.subscribe(function(newVal) {
-            vm.createWizard.destination.customFieldDelimiter(newVal);
+            if (newVal != '') {
+              wizard.destination.customFieldDelimiter(newVal);
+            }
           });
         }
       });
@@ -1534,7 +1544,7 @@ ${ assist.assistPanel() }
       self.description = ko.observable('');
       self.outputFormat = ko.observable(wizard.prefill.target_type() || 'table');
       self.outputFormat.subscribe(function (newValue) {
-        if (newValue && newValue != 'database' && ((newValue == 'table' || newValue == 'index') && wizard.source.path().length > 0)) {
+        if (newValue && newValue != 'database' && ((newValue == 'table' || newValue == 'index') && wizard.source.table().length > 0)) {
           self.nameChanged(self.name());
           wizard.guessFieldTypes();
           resizeElements();
@@ -1559,7 +1569,7 @@ ${ assist.assistPanel() }
           if (format.value == 'file' && ['manual', 'rdbms'].indexOf(wizard.source.inputFormat()) == -1) {
             return false;
           }
-          else if (format.value == 'index' && wizard.source.inputFormat() != 'file') {
+          else if (format.value == 'index' && ['file', 'query', 'table'].indexOf(wizard.source.inputFormat()) == -1) {
             return false;
           }
           if (format.value == 'hbase' && wizard.source.inputFormat() != 'rdbms') {
@@ -1590,9 +1600,7 @@ ${ assist.assistPanel() }
             name = wizard.prefill.target_path().length > 0 ? wizard.prefill.target_path() : wizard.source.path().split('/').pop().split('.')[0];
           }
         } else if (wizard.source.inputFormat() == 'table') {
-          if (wizard.source.table().split('.', 2).length == 2) {
-            name = wizard.source.table();
-          }
+           name = wizard.source.table();
         } else if (wizard.source.inputFormat() == 'query') {
           if (wizard.source.query()) {
             name = wizard.source.name();
@@ -1792,6 +1800,7 @@ ${ assist.assistPanel() }
         {'value': '\\001', 'name': '${ _("^A (\\001)") }'},
         {'value': '\\002', 'name': '${ _("^B (\\002)") }'},
         {'value': '\\003', 'name': '${ _("^C (\\003)") }'},
+        {'value': '\x01', 'name': '${ _("^A (\\x01)") }'}
       ]);
 
       self.editorId = ko.observable();
@@ -1840,7 +1849,7 @@ ${ assist.assistPanel() }
         }
 
         if (self.source.format().type) {
-          if (!self.formatTypeSubscribed) {
+          if (! self.formatTypeSubscribed) {
             self.formatTypeSubscribed = true;
             self.source.format().type.subscribe(function (newType) {
               self.source.format(new FileType(newType));

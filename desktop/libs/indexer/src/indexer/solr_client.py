@@ -26,9 +26,7 @@ from django.utils.translation import ugettext as _
 from desktop.lib.exceptions_renderable import PopupException
 from desktop.lib.i18n import smart_str
 from libsolr.api import SolrApi
-from libsentry.conf import is_enabled as is_sentry_enabled
 from libzookeeper.models import ZookeeperClient
-from search.conf import SOLR_URL, SECURITY_ENABLED
 
 from indexer.conf import CORE_INSTANCE_DIR, get_solr_ensemble
 from indexer.utils import copy_configs
@@ -56,7 +54,7 @@ class SolrClient(object):
 
   def __init__(self, user, api=None):
     self.user = user
-    self.api = api if api is not None else SolrApi(SOLR_URL.get(), self.user, SECURITY_ENABLED.get())
+    self.api = api if api is not None else SolrApi(user=self.user)
 
 
   def get_indexes(self, include_cores=False):
@@ -70,7 +68,10 @@ class SolrClient(object):
 
       if self.is_solr_cloud_mode():
         try:
-          solr_aliases = self.api.aliases()
+          if self.is_solr_six_or_more():
+            solr_aliases = self.api.list_aliases()
+          else:
+            solr_aliases = self.api.aliases()
           for name in solr_aliases:
             collections = solr_aliases[name].split()
             indexes.append({'name': name, 'type': 'alias', 'collections': collections})
@@ -93,6 +94,7 @@ class SolrClient(object):
     if self.is_solr_cloud_mode():
       if config_name is None:
         self._create_cloud_config(name, fields, unique_key_field, df)
+        config_name = name
 
       self.api.create_collection2(name, config_name=config_name, shards=shards, replication=replication)
       fields = [{
@@ -164,6 +166,10 @@ class SolrClient(object):
 
   def delete_alias(self, name):
     return self.api.delete_alias(name)
+
+
+  def update_config(self, name, properties):
+    return self.api.update_config(name, properties)
 
 
   def is_solr_cloud_mode(self):

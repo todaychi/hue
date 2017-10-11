@@ -33,11 +33,7 @@ from notebook.conf import ENABLE_QUERY_BUILDER, ENABLE_QUERY_SCHEDULING, ENABLE_
 <link rel="stylesheet" href="${ static('notebook/css/notebook.css') }">
 <link rel="stylesheet" href="${ static('desktop/ext/css/bootstrap-editable.css') }">
 <link rel="stylesheet" href="${ static('desktop/ext/chosen/chosen.min.css') }">
-<link rel="stylesheet" href="${ static('desktop/ext/css/hue-charts.css') }">
-<link rel="stylesheet" href="${ static('desktop/ext/css/leaflet.css') }">
-<link rel="stylesheet" href="${ static('desktop/ext/css/leaflet.markercluster.css') }">
-<link rel="stylesheet" href="${ static('desktop/ext/css/nv.d3.min.css') }">
-<link rel="stylesheet" href="${ static('desktop/css/nv.d3.css') }">
+
 <link rel="stylesheet" href="${ static('desktop/ext/select2/select2.css') }">
 <link rel="stylesheet" href="${ static('desktop/ext/css/medium-editor.min.css') }">
 <link rel="stylesheet" href="${ static('desktop/css/bootstrap-medium-editor.css') }">
@@ -46,7 +42,6 @@ from notebook.conf import ENABLE_QUERY_BUILDER, ENABLE_QUERY_SCHEDULING, ENABLE_
 % if not is_embeddable:
 <script src="${ static('desktop/ext/js/jquery/plugins/jquery-ui-1.10.4.custom.min.js') }"></script>
 <script src="${ static('desktop/ext/js/knockout-sortable.min.js') }"></script>
-<script src="${ static('desktop/js/ko.charts.js') }"></script>
 <script src="${ static('desktop/js/ko.editable.js') }"></script>
 <script src="${ static('desktop/js/share2.vm.js') }"></script>
 % endif
@@ -119,40 +114,6 @@ from notebook.conf import ENABLE_QUERY_BUILDER, ENABLE_QUERY_SCHEDULING, ENABLE_
 <script src="${ static('desktop/ext/js/bootstrap-editable.min.js') }" type="text/javascript" charset="utf-8"></script>
 <script src="${ static('desktop/ext/chosen/chosen.jquery.min.js') }" type="text/javascript" charset="utf-8"></script>
 
-<script src="${ static('desktop/js/hue.geo.js') }" type="text/javascript" charset="utf-8"></script>
-
-<script src="${ static('desktop/ext/js/leaflet/leaflet.js') }" type="text/javascript" charset="utf-8"></script>
-<script src="${ static('desktop/ext/js/leaflet/leaflet.markercluster.js') }" type="text/javascript" charset="utf-8"></script>
-<script src="${ static('desktop/ext/js/leaflet/leaflet.heat.js') }" type="text/javascript" charset="utf-8"></script>
-
-<script src="${ static('desktop/js/nv.d3.js') }" type="text/javascript" charset="utf-8"></script>
-<script src="${ static('desktop/ext/js/topojson.v1.min.js') }" type="text/javascript" charset="utf-8"></script>
-<script src="${ static('desktop/ext/js/topo/world.topo.js') }" type="text/javascript" charset="utf-8"></script>
-<script src="${ static('desktop/ext/js/topo/usa.topo.js') }" type="text/javascript" charset="utf-8"></script>
-<script src="${ static('desktop/ext/js/topo/chn.topo.js') }" type="text/javascript" charset="utf-8"></script>
-<script src="${ static('desktop/ext/js/topo/bra.topo.js') }" type="text/javascript" charset="utf-8"></script>
-<script src="${ static('desktop/ext/js/topo/can.topo.js') }" type="text/javascript" charset="utf-8"></script>
-<script src="${ static('desktop/ext/js/topo/ind.topo.js') }" type="text/javascript" charset="utf-8"></script>
-<script src="${ static('desktop/ext/js/topo/gbr.topo.js') }" type="text/javascript" charset="utf-8"></script>
-<script src="${ static('desktop/ext/js/topo/ita.topo.js') }" type="text/javascript" charset="utf-8"></script>
-<script src="${ static('desktop/ext/js/topo/fra.topo.js') }" type="text/javascript" charset="utf-8"></script>
-<script src="${ static('desktop/ext/js/topo/deu.topo.js') }" type="text/javascript" charset="utf-8"></script>
-<script src="${ static('desktop/ext/js/topo/jpn.topo.js') }" type="text/javascript" charset="utf-8"></script>
-<script src="${ static('desktop/ext/js/topo/aus.topo.js') }" type="text/javascript" charset="utf-8"></script>
-
-<script src="${ static('desktop/js/nv.d3.datamaps.js') }" type="text/javascript" charset="utf-8"></script>
-<script src="${ static('desktop/js/nv.d3.legend.js') }" type="text/javascript" charset="utf-8"></script>
-<script src="${ static('desktop/js/nv.d3.multiBarWithBrushChart.js') }" type="text/javascript" charset="utf-8"></script>
-<script src="${ static('desktop/js/nv.d3.lineWithBrushChart.js') }" type="text/javascript" charset="utf-8"></script>
-<script src="${ static('desktop/js/nv.d3.growingDiscreteBar.js') }" type="text/javascript" charset="utf-8"></script>
-<script src="${ static('desktop/js/nv.d3.growingDiscreteBarChart.js') }" type="text/javascript" charset="utf-8"></script>
-<script src="${ static('desktop/js/nv.d3.growingMultiBar.js') }" type="text/javascript" charset="utf-8"></script>
-<script src="${ static('desktop/js/nv.d3.growingMultiBarChart.js') }" type="text/javascript" charset="utf-8"></script>
-<script src="${ static('desktop/js/nv.d3.growingPie.js') }" type="text/javascript" charset="utf-8"></script>
-<script src="${ static('desktop/js/nv.d3.growingPieChart.js') }" type="text/javascript" charset="utf-8"></script>
-<script src="${ static('desktop/js/nv.d3.scatter.js') }" type="text/javascript" charset="utf-8"></script>
-<script src="${ static('desktop/js/nv.d3.scatterChart.js') }" type="text/javascript" charset="utf-8"></script>
-
 <script src="${ static('desktop/ext/select2/select2.min.js') }" type="text/javascript" charset="utf-8"></script>
 
 <!--[if IE 9]>
@@ -160,8 +121,11 @@ from notebook.conf import ENABLE_QUERY_BUILDER, ENABLE_QUERY_SCHEDULING, ENABLE_
 <![endif]-->
 <script src="${ static('desktop/ext/js/medium-editor.min.js') }" type="text/javascript" charset="utf-8"></script>
 
+<%namespace name="charting" file="/charting.mako" />
 <%namespace name="dashboard" file="/common_dashboard.mako" />
 <%namespace name="sqlSyntaxDropdown" file="/sql_syntax_dropdown.mako" />
+
+${ charting.import_charts() }
 
 <script src="${ static('desktop/js/ko.common-dashboard.js') }" type="text/javascript" charset="utf-8"></script>
 
@@ -205,18 +169,12 @@ ${ sqlSyntaxDropdown.sqlSyntaxDropdown() }
         <div class="btn-group">
 
           % if ENABLE_PRESENTATION.get():
-          <a class="share-link btn" title="${ _ko('View as a presentation') }" data-bind="click: function() { $root.isPresentationMode(true); },
+          <a class="btn" title="${ _ko('View as a presentation') }" data-bind="click: function() { $root.isPresentationMode(true); },
             css: {'btn-inverse': $root.isPresentationMode(), 'btn': true}">
             <i class="fa fa-line-chart"></i>
           </a>
           % endif
 
-          <!-- ko if: $root.canSave -->
-          <a class="share-link btn" title="${ _ko('Share') }" data-bind="click: prepareShareModal,
-            css: {'isShared': isShared(), 'btn': true}">
-            <i class="fa fa-users"></i>
-          </a>
-          <!-- /ko -->
         </div>
 
         <div class="btn-group">
@@ -236,31 +194,51 @@ ${ sqlSyntaxDropdown.sqlSyntaxDropdown() }
 
         <!-- ko template: { ifnot: editorMode, name: 'notebook-actions' }--><!-- /ko -->
 
-        <!-- ko if: editorMode -->
-        <a class="btn" href="javascript:void(0)" data-bind="click: function() { newNotebook($root.editorType(), null, selectedNotebook() ? $root.selectedNotebook().snippets()[0].currentQueryTab() : null); }, attr: { 'title': '${ _('New ') }' +  editorTypeTitle() + '${ _(' Query') }' }" rel="tooltip" data-placement="bottom">
-          <i class="fa fa-file-o"></i>
-        </a>
-        <!-- /ko -->
-        <!-- ko ifnot: editorMode -->
-        <a class="btn" href="javascript:void(0)" data-bind="click: newNotebook" title="${ _('New Notebook') }" rel="tooltip" data-placement="bottom">
-          <i class="fa fa-file-o"></i>
-        </a>
-        <!-- /ko -->
-
-        <a class="btn pointer" title="${ _('Session') }" data-bind="css: {'active': $root.isContextPanelVisible }, click: function() { $root.isContextPanelVisible(!$root.isContextPanelVisible()); }">
-          <i class="fa fa-cogs"></i>
-        </a>
-
-        <!-- ko if: IS_HUE_4 -->
-        <a class="btn" data-bind="hueLink: '/home/?type=' + (editorMode() ? 'query-' : '') + editorType(), attr: { 'title': editorMode() ? '${ _('Queries') }' : '${ _('Notebooks') }'  }" rel="tooltip" data-placement="bottom">
-          <svg class="hi"><use xlink:href="#hi-documents"></use></svg>
-        </a>
-        <!-- /ko -->
-        <!-- ko ifnot: IS_HUE_4 -->
-        <a class="btn" data-bind="hueLink: '${ url('notebook:notebooks') }?type=' + editorType(), attr: { 'title': editorMode() ? '${ _('Queries') }' : '${ _('Notebooks') }'  }" rel="tooltip" data-placement="bottom">
-          <svg class="hi"><use xlink:href="#hi-documents"></use></svg>
-        </a>
-        <!-- /ko -->
+        <div class="dropdown pull-right margin-left-10">
+          <a class="btn" data-toggle="dropdown" href="javascript: void(0)">
+            <i class="fa fa-fw fa-ellipsis-v"></i>
+          </a>
+          <ul class="dropdown-menu">
+            <!-- ko if: $root.canSave -->
+            <li>
+              <a class="share-link" data-bind="click: prepareShareModal,
+                css: {'isShared': isShared()}">
+                <i class="fa fa-fw fa-users"></i> ${ _('Share') }
+              </a>
+            </li>
+            <!-- /ko -->
+            <li>
+              <a class="pointer" data-bind="css: {'active': $root.isContextPanelVisible }, click: function() { $root.isContextPanelVisible(!$root.isContextPanelVisible()); }">
+                <i class="fa fa-fw fa-cogs"></i> ${ _('Session') }
+              </a>
+            </li>
+            <li class="divider"></li>
+            <li>
+            <!-- ko if: editorMode -->
+              <a href="javascript:void(0)" data-bind="click: function() { newNotebook($root.editorType(), null, selectedNotebook() ? $root.selectedNotebook().snippets()[0].currentQueryTab() : null); }, attr: { 'title': '${ _('New ') }' +  editorTypeTitle() + '${ _(' Query') }' }">
+                <i class="fa fa-fw fa-file-o"></i> ${ _('New') }
+              </a>
+            <!-- /ko -->
+            <!-- ko ifnot: editorMode -->
+              <a href="javascript:void(0)" data-bind="click: newNotebook">
+                <i class="fa fa-file-o"></i> ${ _('New Notebook') }
+              </a>
+            <!-- /ko -->
+            </li>
+            <li>
+              <!-- ko if: IS_HUE_4 -->
+              <a data-bind="hueLink: '/home/?type=' + (editorMode() ? 'query-' : '') + editorType()">
+                <svg class="hi hi-fw"><use xlink:href="#hi-documents"></use></svg> <span data-bind="text: editorMode() ? '${ _ko('Queries') }' : '${ _ko('Notebooks') }'"></span>
+              </a>
+              <!-- /ko -->
+              <!-- ko ifnot: IS_HUE_4 -->
+              <a class="btn" data-bind="hueLink: '${ url('notebook:notebooks') }?type=' + editorType()">
+                <svg class="hi hi-fw"><use xlink:href="#hi-documents"></use></svg> <span data-bind="text: editorMode() ? '${ _ko('Queries') }' : '${ _ko('Notebooks') }'"></span>
+              </a>
+              <!-- /ko -->
+            </li>
+          </ul>
+        </div>
       </div>
 
       <div class="nav-collapse">
@@ -331,6 +309,11 @@ ${ sqlSyntaxDropdown.sqlSyntaxDropdown() }
           </li>
           <li data-bind="visible: isSaved() && ! isHistory() && ! parentSavedQueryUuid()" style="display: none" class="no-horiz-padding muted">
             <a title="${ _('This is a saved query') }"><i class="fa fa-fw fa-file-o"></i></a>
+          </li>
+          <li data-bind="visible: isSchedulerJobRunning" style="display: none" class="no-horiz-padding muted">
+            <a title="${ _('Click to open original saved query') }" data-bind="click: function() { $root.openNotebook(parentSavedQueryUuid()) }" class="pointer inactive-action">
+              ${ _("Scheduling on") }
+            </a>
           </li>
           <li class="query-name no-horiz-padding skip-width-calculation">
             <a href="javascript:void(0)">
@@ -612,10 +595,11 @@ ${ sqlSyntaxDropdown.sqlSyntaxDropdown() }
 <script type="text/html" id="snippet-log${ suffix }">
   <div class="snippet-log-container margin-bottom-10" data-bind="visible: showLogs() && status() != 'ready' && status() != 'loading'" style="display: none;">
     <div data-bind="delayedOverflow, css: resultsKlass" style="margin-top: 5px; position: relative;">
+      <a href="javascript: void(0)" class="inactive-action close-logs-overlay" data-bind="click: function(){ showLogs(false) }"><i class="fa fa-times" style="font-size:18px;"></i></a>
       <ul data-bind="visible: jobs().length > 0, foreach: jobs" class="unstyled jobs-overlay">
         <li data-bind="attr: {'id': $data.name.substr(4)}">
           %if is_embeddable:
-            <a class="pointer" data-bind="text: $.trim($data.name), click: function() { huePubSub.publish('show.jobs.panel', $data.name); }, clickBubble: false"></a>
+            <a class="pointer" data-bind="text: $.trim($data.name), click: function() { huePubSub.publish('show.jobs.panel', {id: $data.name, interface: 'queries'}); }, clickBubble: false"></a>
           %else:
             <a data-bind="text: $.trim($data.name), hueLink: $data.url"></a>
           %endif
@@ -670,7 +654,6 @@ ${ sqlSyntaxDropdown.sqlSyntaxDropdown() }
           <a class="inactive-action" href="#savedQueries" data-toggle="tab">${_('Saved Queries')}
             <div class="inline-block inactive-action margin-left-10 pointer" title="${_('Search the saved queries')}" data-bind="visible: !queriesHasErrors(), click: function(data, e){ queriesFilterVisible(!queriesFilterVisible()); if (queriesFilterVisible()) { window.setTimeout(function(){ $(e.target).parent().siblings('input').focus(); }, 0); } else { queriesFilter('') }}"><i class="snippet-icon fa fa-search"></i></div>
             <input class="input-small inline-tab-filter" type="text" data-bind="visible: queriesFilterVisible, clearable: queriesFilter, valueUpdate:'afterkeydown'" placeholder="${ _('Search...') }">
-            <div class="inline-block inactive-action pointer" title="${_('Refresh')}" rel="tooltip" data-bind="click: fetchQueries"><i class="snippet-icon fa fa-refresh"></i></div>
           </a>
         </li>
         % if ENABLE_QUERY_BUILDER.get():
@@ -846,7 +829,7 @@ ${ sqlSyntaxDropdown.sqlSyntaxDropdown() }
 
         <!-- ko foreach: pinnedContextTabs -->
         <div class="tab-pane" style="height: 300px; position: relative; overflow: hidden;" data-bind="attr: { 'id': tabId }, css: {'active': $parent.currentQueryTab() === tabId }">
-          <div style="display: flex; flex-direction: column; margin-top: 10px; overflow: hidden; height: 100%; position: relative;" data-bind="template: 'sql-context-contents'"></div>
+          <div style="display: flex; flex-direction: column; margin-top: 10px; overflow: hidden; height: 100%; position: relative;" data-bind="template: 'context-popover-contents'"></div>
         </div>
         <!-- /ko -->
       </div>
@@ -889,7 +872,6 @@ ${ sqlSyntaxDropdown.sqlSyntaxDropdown() }
   <div class="hover-actions inline pull-right" style="font-size: 15px;">
     <!-- ko template: { name: 'query-redacted${ suffix }' } --><!-- /ko -->
     <!-- ko template: { name: 'longer-operation${ suffix }' } --><!-- /ko -->
-    <a class="inactive-action" href="javascript:void(0)" data-bind="visible: status() != 'ready' && status() != 'loading' && errors().length == 0, click: function() { hideFixedHeaders(); $data.showLogs(!$data.showLogs());}, css: {'blue': $data.showLogs}" title="${ _('Show Logs') }"><i class="fa fa-file-text-o"></i></a>
     <span class="execution-timer" data-bind="visible: type() != 'text' && status() != 'ready' && status() != 'loading', text: result.executionTime().toHHMMSS()" title="${ _('Execution time') }"></span>
 
     <!-- ko template: { name: 'snippet-header-statement-type${ suffix }' } --><!-- /ko -->
@@ -912,7 +894,6 @@ ${ sqlSyntaxDropdown.sqlSyntaxDropdown() }
 
    <!-- ko template: { name: 'snippet-header-statement-type${ suffix }' } --><!-- /ko -->
 
-    <a class="inactive-action margin-left-10" href="javascript:void(0)" data-bind="visible: status() != 'ready' && status() != 'loading', click: function() { hideFixedHeaders(); $data.showLogs(!$data.showLogs());}, css: {'blue': $data.showLogs}" title="${ _('Show Logs') }"><i class="fa fa-file-text-o"></i></a>
     <a class="inactive-action margin-left-10" href="javascript:void(0)" data-bind="toggle: settingsVisible, visible: hasProperties, css: { 'blue' : settingsVisible }" title="${ _('Settings and properties') }"><i class="fa fa-cog"></i></a>
     <a class="inactive-action margin-left-10 pointer" title="${ _('Show editor shortcuts') }" data-toggle="modal" data-target="#helpModal${ suffix }"><i class="fa fa-question"></i></a>
   </div>
@@ -1124,7 +1105,6 @@ ${ sqlSyntaxDropdown.sqlSyntaxDropdown() }
         snippet: $data,
         contextTooltip: '${ _ko("Right-click for details") }',
         expandStar: '${ _ko("Right-click to expand with columns") }',
-        onBlur: saveTemporarySnippet,
         highlightedRange: result.statement_range,
         useNewAutocompleter: $root.useNewAutocompleter,
         readOnly: $root.isPresentationMode(),
@@ -1159,9 +1139,23 @@ ${ sqlSyntaxDropdown.sqlSyntaxDropdown() }
 
 <script type="text/html" id="notebook-actions">
   <div class="btn-group">
-    <a class="btn" rel="tooltip" data-placement="bottom" title="${ _("Execute all") }" data-bind="click: function() { $root.selectedNotebook().executeAll() }">
-      <i class="fa fa-fw fa-play"></i>
-    </a>
+    <!-- ko if: $root.selectedNotebook() -->
+    <!-- ko with: $root.selectedNotebook() -->
+      <a class="btn" rel="tooltip" data-placement="bottom" title="${ _("Execute all") }" data-bind="visible: ! isExecutingAll(), click: function() { executeAll(); }">
+        <i class="fa fa-fw fa-play"></i>
+      </a>
+      <!-- ko if: ! (snippets()[executingAllIndex()] && snippets()[executingAllIndex()].isCanceling()) -->
+      <a class="btn red" rel="tooltip" data-placement="bottom" title="${ _("Stop all") }" data-bind="visible: isExecutingAll(), click: function() { cancelExecutingAll(); }">
+        <i class="fa fa-fw fa-stop"></i>
+      </a>
+      <!-- /ko -->
+      <!-- ko if: snippets()[executingAllIndex()] && snippets()[executingAllIndex()].isCanceling() -->
+      <a class="btn" style="cursor: default;" title="${ _('Canceling operation...') }">
+        <i class="fa fa-fw fa-spinner snippet-side-single fa-spin"></i>
+      </a>
+      <!-- /ko -->
+    <!-- /ko -->
+    <!-- /ko -->
 
     <a class="btn dropdown-toggle" data-toggle="dropdown" href="#">
       <span class="caret"></span>
@@ -1190,14 +1184,24 @@ ${ sqlSyntaxDropdown.sqlSyntaxDropdown() }
 
 
 <script type="text/html" id="snippet-variables">
-  <ul data-bind="foreach: variables" class="unstyled inline">
-    <li>
-      <div class="input-prepend margin-top-10">
-        <span class="muted add-on" data-bind="text: name"></span>
-        <input class="input-medium" type="text" data-bind="value: value, attr: { placeholder: defaultValue() || '${ _ko('Variable value') }' }, valueUpdate: 'afterkeydown', autogrowInput: { minWidth: 150, maxWidth: 270, comfortZone: 15 }, event: { 'keypress': function (context, e){ if (e.ctrlKey && e.which === 13) { $parent.ace().commands.commands['execute'].exec(); } return true; } }">
-      </div>
-    </li>
-  </ul>
+  <div class="variables">
+    <ul data-bind="foreach: variables" class="unstyled inline">
+      <li>
+        <div class="input-prepend margin-top-10">
+          <span class="muted add-on" data-bind="text: name"></span>
+          <!-- ko if: meta.type() == 'text' -->
+          <input class="input-medium" type="text" data-bind="value: value, attr: { placeholder: meta.placeholder() || '${ _ko('Variable value') }' }, valueUpdate: 'afterkeydown', autogrowInput: { minWidth: 150, maxWidth: 270, comfortZone: 15 }, event: { 'keydown': function (context, e){ if ((e.ctrlKey || e.metaKey) && e.which === 13) { $parent.ace().commands.commands['execute'].exec(); } return true; } }">
+          <!-- /ko -->
+          <!-- ko if: meta.type() == 'select' && !('options' in document.createElement('datalist')) -->
+          <select data-bind="options: meta.options(), optionsText: 'text', optionsValue:'value', value: value, attr: { placeholder: meta.placeholder() || '${ _ko('Variable value') }' }, event: { 'keydown': function (context, e){ if ((e.ctrlKey || e.metaKey) && e.which === 13) { $parent.ace().commands.commands['execute'].exec(); } return true; } }"/>
+          <!-- /ko -->
+          <!-- ko if: meta.type() == 'select' && 'options' in document.createElement('datalist') -->
+          <input list="input-medium" type="text" data-bind="datalist: { options: meta.options(), optionsText: 'text', optionsValue: 'value', value: value }, valueUpdate: 'afterkeydown', autogrowInput: { minWidth: 150, maxWidth: 270, comfortZone: 15 }, attr: { placeholder: meta.placeholder() || '${ _ko('Variable value') }' }, event: { 'keydown': function (context, e){ if ((e.ctrlKey || e.metaKey) && e.which === 13) { $parent.ace().commands.commands['execute'].exec(); } return true; } }" />
+          <!-- /ko -->
+        </div>
+      </li>
+    </ul>
+  </div>
 </script>
 
 
@@ -1411,7 +1415,7 @@ ${ sqlSyntaxDropdown.sqlSyntaxDropdown() }
         <!-- /ko -->
       </div>
 
-      <div class="row-fluid table-results" data-bind="visible: result.type() == 'table'" style="display: none; max-height: 400px; min-height: 260px;">
+      <div class="row-fluid table-results" data-bind="visible: result.type() == 'table'" style="display: none; max-height: 400px; min-height: 290px;">
         <div>
           <div class="column-side" data-bind="visible: isResultSettingsVisible, css:{'span3 result-settings': isResultSettingsVisible, 'hidden': ! isResultSettingsVisible()}" style="position:relative;white-space: nowrap;">
             <!-- ko template: { name: 'snippet-grid-settings${ suffix }', if: showGrid } --><!-- /ko -->
@@ -1440,37 +1444,37 @@ ${ sqlSyntaxDropdown.sqlSyntaxDropdown() }
               <div data-bind="visible: hasDataForChart">
                 <!-- ko if: chartType() == ko.HUE_CHARTS.TYPES.PIECHART -->
                 <div data-bind="attr:{'id': 'pieChart_'+id()}, pieChart: {data: {counts: result.data, sorting: chartSorting(), snippet: $data, limit: chartLimit()}, fqs: ko.observableArray([]),
-                      transformer: pieChartDataTransformer, maxWidth: 350, parentSelector: '.chart-container' }, visible: chartType() == ko.HUE_CHARTS.TYPES.PIECHART" class="chart"></div>
+                      transformer: editorPieChartDataTransformer, maxWidth: 350, parentSelector: '.chart-container' }, visible: chartType() == ko.HUE_CHARTS.TYPES.PIECHART" class="chart"></div>
                 <!-- /ko -->
 
                 <!-- ko if: chartType() == ko.HUE_CHARTS.TYPES.BARCHART -->
                 <div data-bind="attr:{'id': 'barChart_'+id()}, barChart: {skipWindowResize: true, datum: {counts: result.data, sorting: chartSorting(), snippet: $data, limit: chartLimit()}, fqs: ko.observableArray([]), hideSelection: true,
-                      transformer: multiSerieDataTransformer, stacked: false, showLegend: true, isPivot: typeof chartXPivot() !== 'undefined'},  stacked: true, showLegend: true, visible: chartType() == ko.HUE_CHARTS.TYPES.BARCHART" class="chart"></div>
+                      transformer: editorMultiSerieDataTransformer, stacked: false, showLegend: true, isPivot: typeof chartXPivot() !== 'undefined'},  stacked: true, showLegend: true, visible: chartType() == ko.HUE_CHARTS.TYPES.BARCHART" class="chart"></div>
                 <!-- /ko -->
 
                 <!-- ko if: chartType() == ko.HUE_CHARTS.TYPES.LINECHART -->
                 <div data-bind="attr:{'id': 'lineChart_'+id()}, lineChart: {datum: {counts: result.data, sorting: chartSorting(), snippet: $data, limit: chartLimit()},
-                      transformer: multiSerieDataTransformer, showControls: false, enableSelection: false }, visible: chartType() == ko.HUE_CHARTS.TYPES.LINECHART" class="chart"></div>
+                      transformer: editorMultiSerieDataTransformer, showControls: false, enableSelection: false }, visible: chartType() == ko.HUE_CHARTS.TYPES.LINECHART" class="chart"></div>
                 <!-- /ko -->
 
                 <!-- ko if: chartType() == ko.HUE_CHARTS.TYPES.TIMELINECHART -->
                 <div data-bind="attr:{'id': 'timelineChart_'+id()}, timelineChart: {type: chartTimelineType, skipWindowResize: true, datum: {counts: result.data, sorting: chartSorting(), snippet: $data, limit: chartLimit()}, fqs: ko.observableArray([]), hideSelection: true,
-                      transformer: timelineChartDataTransformer, stacked: false, showLegend: true}, hideSelection: true, visible: chartType() == ko.HUE_CHARTS.TYPES.TIMELINECHART" class="chart"></div>
+                      transformer: editorTimelineChartDataTransformer, stacked: false, showLegend: true}, hideSelection: true, visible: chartType() == ko.HUE_CHARTS.TYPES.TIMELINECHART" class="chart"></div>
                 <!-- /ko -->
 
                 <!-- ko if: chartType() == ko.HUE_CHARTS.TYPES.MAP -->
                 <div data-bind="attr:{'id': 'leafletMapChart_'+id()}, leafletMapChart: {datum: {counts: result.data, sorting: chartSorting(), snippet: $data, limit: chartLimit()},
-                      transformer: leafletMapChartDataTransformer, showControls: false, height: 380, visible: chartType() == ko.HUE_CHARTS.TYPES.MAP, forceRedraw: true}" class="chart"></div>
+                      transformer: editorLeafletMapChartDataTransformer, showControls: false, height: 380, visible: chartType() == ko.HUE_CHARTS.TYPES.MAP, forceRedraw: true}" class="chart"></div>
                 <!-- /ko -->
 
                 <!-- ko if: chartType() == ko.HUE_CHARTS.TYPES.GRADIENTMAP -->
                 <div data-bind="attr:{'id': 'gradientMapChart_'+id()}, mapChart: {data: {counts: result.data, sorting: chartSorting(), snippet: $data, scope: chartScope(), limit: chartLimit()},
-                      transformer: mapChartDataTransformer, isScale: true, showControls: false, height: 380, maxWidth: 750, parentSelector: '.chart-container', visible: chartType() == ko.HUE_CHARTS.TYPES.GRADIENTMAP}" class="chart"></div>
+                      transformer: editorMapChartDataTransformer, isScale: true, showControls: false, height: 380, maxWidth: 750, parentSelector: '.chart-container', visible: chartType() == ko.HUE_CHARTS.TYPES.GRADIENTMAP}" class="chart"></div>
                 <!-- /ko -->
 
                 <!-- ko if: chartType() == ko.HUE_CHARTS.TYPES.SCATTERCHART -->
                 <div data-bind="attr:{'id': 'scatterChart_'+id()}, scatterChart: {datum: {counts: result.data, snippet: $data, limit: chartLimit()},
-                      transformer: scatterChartDataTransformer, maxWidth: 350, y: chartYSingle(), x: chartX(), size: chartScatterSize(), group: chartScatterGroup() }, visible: chartType() == ko.HUE_CHARTS.TYPES.SCATTERCHART" class="chart"></div>
+                      transformer: editorScatterChartDataTransformer, maxWidth: 350, y: chartYSingle(), x: chartX(), size: chartScatterSize(), group: chartScatterGroup() }, visible: chartType() == ko.HUE_CHARTS.TYPES.SCATTERCHART" class="chart"></div>
                 <!-- /ko -->
               </div>
             </div>
@@ -1605,6 +1609,7 @@ ${ sqlSyntaxDropdown.sqlSyntaxDropdown() }
 
 <script type="text/html" id="snippet-execution-status${ suffix }">
   <div class="snippet-execution-status" data-bind="clickForAceFocus: ace">
+    <a class="inactive-action pull-left snippet-logs-btn" href="javascript:void(0)" data-bind="visible: status() === 'running' && errors().length == 0, click: function() { hideFixedHeaders(); $data.showLogs(!$data.showLogs());}, css: {'blue': $data.showLogs}" title="${ _('Toggle Logs') }"><i class="fa fa-fw" style="font-size:20px;" data-bind="css: { 'fa-caret-right': !$data.showLogs(), 'fa-caret-down': $data.showLogs() }"></i></a>
     <div class="snippet-progress-container" data-bind="visible: status() != 'canceled' && status() != 'with-optimizer-report'">
       <div class="progress-snippet progress" data-bind="css: {
         'progress-starting': progress() == 0 && status() == 'running',
@@ -1986,18 +1991,14 @@ ${ sqlSyntaxDropdown.sqlSyntaxDropdown() }
 <%def name="commonJS(is_embeddable=False, bindableElement='editorComponents', suffix='')">
 
 <script type="text/javascript">
+  var HUE_PUB_SUB_EDITOR_ID = (window.location.pathname.indexOf('notebook') > -1) ? 'notebook' : 'editor';
   % if is_embeddable:
   var MAIN_SCROLLABLE = '.page-content';
-  var HUE_PUB_SUB_EDITOR_ID = 'editor' + (window.location.getParameter('type') ? '-' + window.location.getParameter('type') : '');
   % else:
   var MAIN_SCROLLABLE = '.content-panel';
-  var HUE_PUB_SUB_EDITOR_ID = 'editor';
   var shareViewModel = initSharing("#documentShareModal");
   % endif
 
-  if (window.location.pathname.indexOf('notebook') > -1) {
-    HUE_PUB_SUB_EDITOR_ID = 'notebook';
-  }
 
 
   var isLeftNavOpen = false;
@@ -2065,8 +2066,8 @@ ${ sqlSyntaxDropdown.sqlSyntaxDropdown() }
           }
         }
       },
-      scrollable: vm.editorMode() ? MAIN_SCROLLABLE : '.dataTables_wrapper',
-      contained: !vm.editorMode()
+      scrollable: vm.editorMode() && !vm.isPresentationMode() ? MAIN_SCROLLABLE : '.dataTables_wrapper',
+      contained: !vm.editorMode() || vm.isPresentationMode()
     });
 
     window.setTimeout(function () {
@@ -2158,7 +2159,7 @@ ${ sqlSyntaxDropdown.sqlSyntaxDropdown() }
         if (snippetEl.find('.dataTables_wrapper').length > 0 && snippet.showGrid()) {
           window.clearTimeout(resultFollowTimeout);
           resultFollowTimeout = window.setTimeout(function () {
-            var topCoord = vm.isPresentationMode() || vm.isResultFullScreenMode() ? 1 : 73;
+            var topCoord = vm.isPresentationMode() || vm.isResultFullScreenMode() ? 50 : 73;
             var offsetTop = 0;
             if (snippetEl.find('.dataTables_wrapper').length > 0 && snippetEl.find('.dataTables_wrapper').offset()){
               offsetTop = (snippetEl.find('.dataTables_wrapper').offset().top - topCoord) * -1;
@@ -2169,7 +2170,7 @@ ${ sqlSyntaxDropdown.sqlSyntaxDropdown() }
             %endif
             if (snippet.isResultSettingsVisible()) {
               snippetEl.find('.snippet-grid-settings').css({
-                "height": Math.max(100, Math.ceil($(window).height() - Math.max($('#queryResults').offset().top, topCoord)))+ 'px'
+                "height": vm.isPresentationMode() || !vm.editorMode() ? '330px' : Math.max(100, Math.ceil($(window).height() - Math.max($('#queryResults').offset().top, topCoord)))+ 'px'
               });
               snippetEl.find('.result-settings').animate({
                 'marginTop': margin
@@ -2254,7 +2255,7 @@ ${ sqlSyntaxDropdown.sqlSyntaxDropdown() }
     return val !== 'NULL' && val !== null;
   }
 
-  function pieChartDataTransformer(rawDatum) {
+  function editorPieChartDataTransformer(rawDatum) {
     var _data = [];
 
     if (rawDatum.snippet.chartX() != null && rawDatum.snippet.chartYSingle() != null) {
@@ -2297,13 +2298,13 @@ ${ sqlSyntaxDropdown.sqlSyntaxDropdown() }
     }
 
     if (rawDatum.snippet.chartLimit()) {
-      _data = _data.slice(1, rawDatum.snippet.chartLimit() + 1);
+      _data = _data.slice(0, rawDatum.snippet.chartLimit());
     }
 
     return _data;
   }
 
-  function mapChartDataTransformer(rawDatum) {
+  function editorMapChartDataTransformer(rawDatum) {
     var _data = [];
     if (rawDatum.snippet.chartX() != null && rawDatum.snippet.chartYSingle() != null) {
       var _idxRegion = -1;
@@ -2329,7 +2330,7 @@ ${ sqlSyntaxDropdown.sqlSyntaxDropdown() }
     }
 
     if (rawDatum.snippet.chartLimit()) {
-      _data = _data.slice(1, rawDatum.snippet.chartLimit() + 1);
+      _data = _data.slice(0, rawDatum.snippet.chartLimit());
     }
 
     return _data;
@@ -2341,7 +2342,7 @@ ${ sqlSyntaxDropdown.sqlSyntaxDropdown() }
   var MIN_LNG = -180;
   var MAX_LNG = 180;
 
-  function leafletMapChartDataTransformer(rawDatum) {
+  function editorLeafletMapChartDataTransformer(rawDatum) {
     var _data = [];
     if (rawDatum.snippet.chartX() != null && rawDatum.snippet.chartYSingle() != null) {
       var _idxLat = -1;
@@ -2391,14 +2392,14 @@ ${ sqlSyntaxDropdown.sqlSyntaxDropdown() }
     }
 
     if (rawDatum.snippet.chartLimit()) {
-      _data = _data.slice(1, rawDatum.snippet.chartLimit() + 1);
+      _data = _data.slice(0, rawDatum.snippet.chartLimit());
     }
 
     return _data;
   }
 
 
-  function timelineChartDataTransformer(rawDatum) {
+  function editorTimelineChartDataTransformer(rawDatum) {
     var _datum = [];
     var _plottedSerie = 0;
 
@@ -2441,7 +2442,7 @@ ${ sqlSyntaxDropdown.sqlSyntaxDropdown() }
             });
           }
           if (rawDatum.snippet.chartLimit()) {
-            _data = _data.slice(1, rawDatum.snippet.chartLimit() + 1);
+            _data = _data.slice(0, rawDatum.snippet.chartLimit() );
           }
           _datum.push({
             key: col,
@@ -2455,7 +2456,7 @@ ${ sqlSyntaxDropdown.sqlSyntaxDropdown() }
     return _datum;
   }
 
-  function multiSerieDataTransformer(rawDatum) {
+  function editorMultiSerieDataTransformer(rawDatum) {
     var _datum = [];
 
     if (rawDatum.snippet.chartX() != null && rawDatum.snippet.chartYMulti().length > 0) {
@@ -2535,7 +2536,7 @@ ${ sqlSyntaxDropdown.sqlSyntaxDropdown() }
           }
         });
         if (rawDatum.snippet.chartLimit()) {
-          _datum = _datum.slice(1, rawDatum.snippet.chartLimit() + 1);
+          _datum = _datum.slice(0, rawDatum.snippet.chartLimit());
         }
       }
       else {
@@ -2580,7 +2581,7 @@ ${ sqlSyntaxDropdown.sqlSyntaxDropdown() }
                 });
               }
               if (rawDatum.snippet.chartLimit()) {
-                _data = _data.slice(1, rawDatum.snippet.chartLimit() + 1);
+                _data = _data.slice(0, rawDatum.snippet.chartLimit());
               }
               _datum.push({
                 key: col,
@@ -2595,7 +2596,7 @@ ${ sqlSyntaxDropdown.sqlSyntaxDropdown() }
     return _datum;
   }
 
-  function scatterChartDataTransformer(rawDatum) {
+  function editorScatterChartDataTransformer(rawDatum) {
     var _datum = [];
 
     if (rawDatum.snippet.chartX() != null && rawDatum.snippet.chartYSingle() != null) {
@@ -2635,7 +2636,7 @@ ${ sqlSyntaxDropdown.sqlSyntaxDropdown() }
             }
           });
           if (rawDatum.snippet.chartLimit()) {
-            _data = _data.slice(1, rawDatum.snippet.chartLimit() + 1);
+            _data = _data.slice(0, rawDatum.snippet.chartLimit());
           }
           _datum.push({
             key: col,
@@ -2662,17 +2663,6 @@ ${ sqlSyntaxDropdown.sqlSyntaxDropdown() }
 
     }
     return _datum;
-  }
-
-  function saveTemporarySnippet($element, value) {
-    if ($element.data('last-active-editor')) {
-      try {
-        if (viewModel.editorType() != 'notebook') {
-          $.totalStorage('hue.notebook.lastWrittenSnippet.${user}.' + viewModel.editorType(), value);
-        }
-      }
-      catch (e){} // storage quota exceeded with enormous editor content
-    }
   }
 
   (function () {
@@ -2896,6 +2886,7 @@ ${ sqlSyntaxDropdown.sqlSyntaxDropdown() }
       if (app === 'editor') {
         huePubSub.publish('redraw.fixed.headers');
         huePubSub.publish('hue.scrollleft.show');
+        huePubSub.publish('active.snippet.type.changed', viewModel.editorType());
       }
     }, HUE_PUB_SUB_EDITOR_ID);
 
@@ -3149,6 +3140,11 @@ ${ sqlSyntaxDropdown.sqlSyntaxDropdown() }
         huePubSub.publish('set.selected.notebook', viewModel.selectedNotebook());
       }, HUE_PUB_SUB_EDITOR_ID);
 
+      huePubSub.subscribe('left.assist.show', function () {
+        if (!viewModel.isLeftPanelVisible() && viewModel.assistAvailable()) {
+          viewModel.isLeftPanelVisible(true);
+        }
+      }, HUE_PUB_SUB_EDITOR_ID);
 
       var wasResultFullScreenMode = false;
       var isAssistAvailable = viewModel.assistAvailable();
@@ -3162,6 +3158,7 @@ ${ sqlSyntaxDropdown.sqlSyntaxDropdown() }
           viewModel.isResultFullScreenMode(false);
         }
       }
+
       function togglePresentation(value) {
         viewModel.isEditing(! viewModel.isEditing());
         if (value) {
@@ -3213,6 +3210,9 @@ ${ sqlSyntaxDropdown.sqlSyntaxDropdown() }
       });
       viewModel.isPresentationMode.subscribe(function(newValue) {
         wasResultFullScreenMode = false;
+        if (! newValue) {
+          viewModel.selectedNotebook().cancelExecutingAll();
+        }
         togglePresentation(newValue);
         viewModel.togglePresentationMode();
         if (newValue) {
@@ -3468,7 +3468,7 @@ ${ sqlSyntaxDropdown.sqlSyntaxDropdown() }
           _dtElement = $("#snippet_" + snippet.id()).find(".dataTables_wrapper");
           var topCoord = viewModel.isPresentationMode() || viewModel.isResultFullScreenMode() ? ${ conf.CUSTOM.BANNER_TOP_HTML.get() and '31' or '1' } : 73;
           $("#snippet_" + snippet.id()).find(".snippet-grid-settings").css({
-            "height": Math.ceil($(window).height() - Math.max($('.result-settings').length > 0 ? $('.result-settings').offset().top : 0, topCoord)) + 'px'
+            "height": viewModel.isPresentationMode() || !viewModel.editorMode() ? '330px' : Math.ceil($(window).height() - Math.max($('.result-settings').length > 0 ? $('.result-settings').offset().top : 0, topCoord)) + 'px'
           });
         } else {
           _dtElement = $("#snippet_" + snippet.id()).find(".chart:visible");
@@ -3501,14 +3501,12 @@ ${ sqlSyntaxDropdown.sqlSyntaxDropdown() }
               $("#snippet_" + options.snippet.id()).find("select").trigger("chosen:updated");
               _dt = createDatatable(_el, options.snippet, viewModel);
               resetResultsResizer(options.snippet);
-            }
-            else {
+            } else {
               _dt = _el.hueDataTable();
             }
             try {
               _dt.fnAddData(options.data);
-            }
-            catch (e) {}
+            } catch (e) {}
             var _dtElement = $("#snippet_" + options.snippet.id()).find(".dataTables_wrapper");
             huePubSub.publish('editor.snippet.result.normal', options.snippet);
             _dtElement.scrollTop(_dtElement.data("scrollPosition"));
@@ -3525,7 +3523,6 @@ ${ sqlSyntaxDropdown.sqlSyntaxDropdown() }
             scrollInertia: 0
           });
         }, 200)
-
       }, HUE_PUB_SUB_EDITOR_ID);
 
       huePubSub.subscribe('editor.redraw.data', function (options) {
@@ -3580,7 +3577,7 @@ ${ sqlSyntaxDropdown.sqlSyntaxDropdown() }
       huePubSub.subscribe('submit.popup.return', function (data) {
         viewModel.selectedNotebook().viewSchedulerId(data.job_id);
         $('.submit-modal-editor').modal('hide');
-        huePubSub.publish('show.jobs.panel', data.job_id);
+        huePubSub.publish('show.jobs.panel', {id: data.job_id, interface: 'workflows'});
       }, HUE_PUB_SUB_EDITOR_ID);
 
       huePubSub.subscribe('jobbrowser.data', function (jobs) {
@@ -3625,26 +3622,36 @@ ${ sqlSyntaxDropdown.sqlSyntaxDropdown() }
           }
         }
         callback(result);
-      });
+      }, HUE_PUB_SUB_EDITOR_ID);
 
-      $(document).on("gridShown", function (e, snippet) {
-        window.setTimeout(function () {
+      huePubSub.subscribe('editor.grid.shown', function (snippet) {
+        hueUtils.waitForRendered('#snippet_' + snippet.id() + ' .dataTables_wrapper', function (el) {
+          return el.is(':visible')
+        }, function () {
           resizeToggleResultSettings(snippet, true);
           forceChartDraws();
-          $('#snippet_' + snippet.id()).find('.snippet-grid-settings').mCustomScrollbar({axis: 'xy', theme: 'minimal-dark', scrollbarPosition: 'outside', mouseWheel:{ preventDefault: true, deltaFactor: 10 }, scrollInertia: 0});
-          window.setTimeout(function(){
+          $('#snippet_' + snippet.id()).find('.snippet-grid-settings').mCustomScrollbar({
+            axis: 'xy',
+            theme: 'minimal-dark',
+            scrollbarPosition: 'outside',
+            mouseWheel: {preventDefault: true, deltaFactor: 10},
+            scrollInertia: 0
+          });
+          window.setTimeout(function () {
             $('#snippet_' + snippet.id()).find('.snippet-grid-settings').mCustomScrollbar('scrollTo', 'left', {
               scrollInertia: 0
             });
           }, 200)
-        }, 50);
-      });
+        });
+      }, HUE_PUB_SUB_EDITOR_ID);
 
-      $(document).on("chartShown", function (e, snippet) {
-        window.setTimeout(function () {
+      huePubSub.subscribe('editor.chart.shown', function (snippet) {
+        hueUtils.waitForRendered('#snippet_' + snippet.id() + ' .chart:visible', function (el) {
+          return el.length > 0
+        }, function () {
           resizeToggleResultSettings(snippet, true);
-        }, 50);
-      });
+        });
+      }, HUE_PUB_SUB_EDITOR_ID);
 
       $(document).on("forceChartDraw", function (e, snippet) {
         window.setTimeout(function () {

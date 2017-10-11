@@ -14,22 +14,44 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-var AssistS3Entry = (function () {
+var AssistStorageEntry = (function () {
 
   var PAGE_SIZE = 100;
+
+  var TYPE_SPECIFICS = {
+    'adls': {
+      apiHelperFetchFunction: 'fetchAdlsPath',
+      dblClickPubSubId: 'assist.dblClickAdlsItem',
+      goHomePubSubId: 'assist.adls.go.home',
+      selectEntryPubSubId: 'assist.selectAdlsEntry'
+    },
+    'hdfs': {
+      apiHelperFetchFunction: 'fetchHdfsPath',
+      dblClickPubSubId: 'assist.dblClickHdfsItem',
+      goHomePubSubId: 'assist.hdfs.go.home',
+      selectEntryPubSubId: 'assist.selectHdfsEntry'
+    },
+    's3': {
+      apiHelperFetchFunction: 'fetchS3Path',
+      dblClickPubSubId: 'assist.dblClickS3Item',
+      goHomePubSubId: 'assist.s3.go.home',
+      selectEntryPubSubId: 'assist.selectS3Entry'
+    }
+  };
 
   /**
    * @param {object} options
    * @param {object} options.definition
    * @param {string} options.definition.name
    * @param {string} options.definition.type (file, dir)
-   * @param {AssistS3Entry} options.parent
+   * @param {string} options.type - The storage type ('adls', 'hdfs', 's3')
+   * @param {AssistStorageEntry} options.parent
    * @param {ApiHelper} options.apiHelper
    * @constructor
    */
-  function AssistS3Entry (options) {
+  function AssistStorageEntry (options) {
     var self = this;
-
+    self.type = options.type;
     self.definition = options.definition;
     self.apiHelper = options.apiHelper;
     self.parent = options.parent;
@@ -44,15 +66,7 @@ var AssistS3Entry = (function () {
     self.currentPage = 1;
     self.hasMorePages = true;
 
-    self.isFilterVisible = ko.observable(false);
-    self.editingSearch = ko.observable(false);
     self.filter = ko.observable('').extend({ rateLimit: 400 });
-
-    self.isFilterVisible.subscribe(function (newValue) {
-      if (!newValue && self.filter()) {
-        self.filter('');
-      }
-    });
 
     self.filter.subscribe(function () {
       self.loadEntries();
@@ -77,18 +91,12 @@ var AssistS3Entry = (function () {
     });
   }
 
-  AssistS3Entry.prototype.toggleSearch = function () {
+  AssistStorageEntry.prototype.dblClick = function () {
     var self = this;
-    self.isFilterVisible(!self.isFilterVisible());
-    self.editingSearch(self.isFilterVisible());
+    huePubSub.publish(TYPE_SPECIFICS[self.type].dblClickPubSubId, self);
   };
 
-  AssistS3Entry.prototype.dblClick = function () {
-    var self = this;
-    huePubSub.publish('assist.dblClickS3Item', self);
-  };
-
-  AssistS3Entry.prototype.loadEntries = function(callback) {
+  AssistStorageEntry.prototype.loadEntries = function(callback) {
     var self = this;
     if (self.loading()) {
       return;
@@ -102,7 +110,8 @@ var AssistS3Entry = (function () {
         return file.name !== '.' && file.name !== '..';
       });
       self.entries($.map(filteredFiles, function (file) {
-        return new AssistS3Entry({
+        return new AssistStorageEntry({
+          type: self.type,
           definition: file,
           parent: self,
           apiHelper: self.apiHelper
@@ -123,17 +132,22 @@ var AssistS3Entry = (function () {
       }
     };
 
-    self.apiHelper.fetchS3Path({
+    self.apiHelper[TYPE_SPECIFICS[self.type].apiHelperFetchFunction]({
       pageSize: PAGE_SIZE,
       page: self.currentPage,
-      filter: self.isFilterVisible() && self.filter().trim() ? self.filter() : undefined,
+      filter: self.filter().trim() ? self.filter() : undefined,
       pathParts: self.getHierarchy(),
       successCallback: successCallback,
       errorCallback: errorCallback
     })
   };
 
-  AssistS3Entry.prototype.loadDeep = function(folders, callback) {
+  AssistStorageEntry.prototype.goHome = function () {
+    var self = this;
+    huePubSub.publish(TYPE_SPECIFICS[self.type].goHomePubSubId);
+  };
+
+  AssistStorageEntry.prototype.loadDeep = function(folders, callback) {
     var self = this;
 
     if (folders.length === 0) {
@@ -171,7 +185,7 @@ var AssistS3Entry = (function () {
     }
   };
 
-  AssistS3Entry.prototype.getHierarchy = function () {
+  AssistStorageEntry.prototype.getHierarchy = function () {
     var self = this;
     var parts = [];
     var entry = self;
@@ -183,7 +197,7 @@ var AssistS3Entry = (function () {
     return parts;
   };
 
-  AssistS3Entry.prototype.toggleOpen = function (data, event) {
+  AssistStorageEntry.prototype.toggleOpen = function (data, event) {
     var self = this;
     if (self.definition.type === 'file') {
       if (IS_HUE_4) {
@@ -200,14 +214,14 @@ var AssistS3Entry = (function () {
     self.open(!self.open());
     if (self.definition.name === '..') {
       if (self.parent.parent) {
-        huePubSub.publish('assist.selectS3Entry', self.parent.parent);
+        huePubSub.publish(TYPE_SPECIFICS[self.type].selectEntryPubSubId, self.parent.parent);
       }
     } else {
-      huePubSub.publish('assist.selectS3Entry', self);
+      huePubSub.publish(TYPE_SPECIFICS[self.type].selectEntryPubSubId, self);
     }
   };
 
-  AssistS3Entry.prototype.fetchMore = function (successCallback, errorCallback) {
+  AssistStorageEntry.prototype.fetchMore = function (successCallback, errorCallback) {
     var self = this;
     if (!self.hasMorePages || self.loadingMore()) {
       return;
@@ -215,10 +229,10 @@ var AssistS3Entry = (function () {
     self.currentPage++;
     self.loadingMore(true);
     self.hasErrors(false);
-    self.apiHelper.fetchS3Path({
+    self.apiHelper.fetchHdfsPath({
       pageSize: PAGE_SIZE,
       page: self.currentPage,
-      filter: self.isFilterVisible() && self.filter().trim() ? self.filter() : undefined,
+      filter: self.filter().trim() ? self.filter() : undefined,
       pathParts: self.getHierarchy(),
       successCallback: function (data) {
         self.hasMorePages = data.page.next_page_number > self.currentPage;
@@ -226,7 +240,8 @@ var AssistS3Entry = (function () {
           return file.name !== '.' && file.name !== '..';
         });
         self.entries(self.entries().concat($.map(filteredFiles, function (file) {
-          return new AssistS3Entry({
+          return new AssistStorageEntry({
+            type: self.type,
             definition: file,
             parent: self,
             apiHelper: self.apiHelper
@@ -246,5 +261,9 @@ var AssistS3Entry = (function () {
     });
   };
 
-  return AssistS3Entry;
+  AssistStorageEntry.prototype.openInImporter = function () {
+    huePubSub.publish('open.in.importer', this.definition.path);
+  };
+
+  return AssistStorageEntry;
 })();

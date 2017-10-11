@@ -18,7 +18,7 @@
 %x singleQuote doubleQuote
 %%
 
-\s                                              { /* skip whitespace */ }
+\s+                                             { return 'WS' }
 
 '\u2020'                                        { parser.yy.cursorFound = yylloc; return 'CURSOR'; }
 
@@ -46,7 +46,7 @@
 
 <doubleQuote>\"                                 { this.popState(); return 'QUOTE'; }
 
-[^"'\s\u2020]+                                    { return 'TEXT'; }
+[^"'\s\u2020]+                                  { return 'TEXT'; }
 
 <<EOF>>                                         { return 'EOF'; }
 
@@ -57,54 +57,66 @@
 %%
 
 GlobalSearchAutocomplete
- : SearchParts 'EOF'
+ : OptionalWhitespace SearchParts OptionalWhitespace 'EOF'
    {
-     return {};
+     return $2;
    }
- | SearchParts_EDIT 'EOF'
+ | OptionalWhitespace SearchParts_EDIT 'EOF'
    {
-     if (!$1.facets) {
-       $1.facets = [];
+     if (!$2.facets) {
+       $2.facets = {};
      }
-     return $1;
+     if (!$2.text) {
+       $2.text = [];
+     }
+     return $2;
    }
- | 'EOF'
+ | OptionalWhitespace 'EOF'
    {
-     return {};
+     return { facets: {}, text: [] };
    }
  ;
 
 SearchParts
- : SearchPart                   -->  { facets: $1.facet ? [ $1.facet ] : [] }
- | SearchParts SearchPart
+ : SearchPart
+ | SearchParts WS SearchPart
    {
-     if ($2.facet) {
-       $1.facets.push($2.facet);
-     }
+     parser.mergeFacets($1, $3);
+     parser.mergeText($1, $3);
    }
  ;
 
 SearchParts_EDIT
  : SearchPart_EDIT
- | SearchParts SearchPart_EDIT
+ | SearchParts WS SearchPart_EDIT
    {
-     $2.facets = $1.facets;
-     $$ = $2;
+     parser.mergeFacets($1, $3);
+     parser.mergeText($1, $3);
+     $$ = $3;
+     $$.text = $1.text;
+     $$.facets = $1.facets;
    }
- | SearchPart_EDIT SearchParts
+ | SearchPart_EDIT WS SearchParts
    {
-     $1.facets = $2.facets;
+     $$ = $1;
+     parser.mergeFacets($$, $3);
+     parser.mergeText($$, $3);
    }
- | SearchParts SearchPart_EDIT SearchParts
+ | SearchParts WS SearchPart_EDIT WS SearchParts
    {
-     $2.facets = $1.facets.concat($3.facets);
-     $$ = $2;
+     parser.mergeFacets($1, $3);
+     parser.mergeFacets($1, $5);
+     parser.mergeText($1, $3);
+     parser.mergeText($1, $5);
+     $$ = $3;
+     $$.text = $1.text;
+     $$.facets = $1.facets;
    }
  ;
 
 SearchPart
- : Facet
- | FreeText
+ : Facet     --> { text: [], facets: $1.facets }
+ | FreeText  --> { text: [$1], facets: {} }
  ;
 
 SearchPart_EDIT
@@ -113,11 +125,26 @@ SearchPart_EDIT
  ;
 
 Facet
- : 'FACET' FreeText     --> { facet: $1.substring(0, $1.length - 1) }
+ : 'FACET' OptionalWhitespace FreeText
+   {
+     var facet = {};
+     var facetName = $1.substring(0, $1.length - 1).toLowerCase();
+     facet[facetName] = {};
+     facet[facetName][$3.toLowerCase()] = true;
+     $$ = { facets: facet };
+   }
  ;
 
 Facet_EDIT
- : 'FACET' 'CURSOR'     --> { suggestFacetValues: $1.substring(0, $1.length - 1) }
+ : 'FACET' OptionalWhitespace 'CURSOR'           --> { suggestFacetValues: $1.substring(0, $1.length - 1).toLowerCase() }
+ | 'FACET' OptionalWhitespace FreeText 'CURSOR'
+   {
+     var facet = {};
+     var facetName = $1.substring(0, $1.length - 1).toLowerCase();
+     facet[facetName] = {};
+     facet[facetName][$3.toLowerCase()] = true;
+     $$ = { suggestFacetValues: facetName, facets: facet }
+   }
  ;
 
 FreeText
@@ -126,17 +153,25 @@ FreeText
  ;
 
 FreeText_EDIT
- : 'CURSOR'             --> { suggestFacets: true, suggestResults: true }
+ : 'CURSOR'                --> { suggestFacets: true, suggestResults: true }
+ | 'CURSOR' 'TEXT'         --> { suggestFacets: true, suggestResults: true, text: [$2] }
+ | 'TEXT' 'CURSOR' 'TEXT'  --> { suggestFacets: true, suggestResults: true, text: [$1+$3] }
+ | 'TEXT' 'CURSOR'         --> { suggestFacets: true, suggestResults: true, text: [$1] }
  | QuotedValue_EDIT
  ;
 
 QuotedValue
- : 'QUOTE' 'VALUE' 'QUOTE'
- | 'QUOTE' 'QUOTE'
+ : 'QUOTE' 'VALUE' 'QUOTE'  --> $2
+ | 'QUOTE' 'QUOTE'          --> ''
  ;
 
 QuotedValue_EDIT
- : 'QUOTE' 'PARTIAL_VALUE'
+ : 'QUOTE' 'PARTIAL_VALUE'  --> $2
+ ;
+
+OptionalWhitespace
+ :
+ | WS
  ;
 
 %%

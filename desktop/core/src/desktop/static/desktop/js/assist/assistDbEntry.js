@@ -28,7 +28,7 @@ var AssistDbEntry = (function () {
    * @param {AssistDbEntry} parent
    * @param {AssistDbSource} assistDbSource
    * @param {Object} filter
-   * @param {function} filter.query (observable)
+   * @param {function} filter.querySpec (observable)
    * @param {function} filter.showViews (observable)
    * @param {function} filter.showTables (observable)
    * @param {Object} i18n
@@ -44,8 +44,8 @@ var AssistDbEntry = (function () {
     self.sortFunctions = assistDbSource.sortFunctions;
     self.parent = parent;
     self.filter = filter;
+    self.filterColumnNames = ko.observable(false);
     self.isSearchVisible = assistDbSource.isSearchVisible;
-    self.editingSearch = ko.observable(false);
     self.sourceType = self.assistDbSource.sourceType;
     self.invalidateOnRefresh =  self.assistDbSource.invalidateOnRefresh;
     self.highlight = ko.observable(false);
@@ -79,19 +79,41 @@ var AssistDbEntry = (function () {
     });
 
     self.filteredEntries = ko.pureComputed(function () {
-      if (self.filter == null || (self.filter.showTables && self.filter.showTables() && self.filter.showViews() && self.filter.query().length === 0)) {
+      var facets = self.filter.querySpec().facets;
+      var tableAndViewFilterMatch = !self.definition.isDatabase || (self.filter.showTables && self.filter.showTables() && self.filter.showViews && self.filter.showViews());
+      var facetMatch = !facets || Object.keys(facets).length === 0 || !facets['type']; // So far only type facet is used for SQL
+      // Only text match on tables/views or columns if flag is set
+      var textMatch = (!self.definition.isDatabase && !self.filterColumnNames()) || (!self.filter.querySpec().text || self.filter.querySpec().text.length === 0);
+
+      if (tableAndViewFilterMatch && facetMatch && textMatch) {
         return self.entries();
       }
-      var result = [];
-      $.each(self.entries(), function (index, entry) {
-        if ((entry.definition.isTable && !self.filter.showTables()) || (entry.definition.isView && !self.filter.showViews()) ) {
-          return;
+
+      return self.entries().filter(function (entry) {
+        var match = true;
+        if (!tableAndViewFilterMatch) {
+          match = entry.definition.isTable && self.filter.showTables() || entry.definition.isView && self.filter.showViews();
         }
-        if (entry.definition.name.toLowerCase().indexOf(self.filter.query().toLowerCase()) > -1) {
-          result.push(entry);
+
+        if (match && !facetMatch) {
+          if (entry.definition.isColumn || entry.definition.isComplex) {
+            match = (Object.keys(facets['type']).length == 2 && facets['type']['table'] && facets['type']['view'])
+              || (Object.keys(facets['type']).length == 1 && (facets['type']['table'] || facets['type']['view']))
+              || facets['type'][entry.definition.type];
+          } else if (entry.definition.isView || entry.definition.isTable) {
+            match = (!facets['type']['table'] && !facets['type']['view']) || (facets['type']['table'] && entry.definition.isTable) || (facets['type']['view'] && entry.definition.isView);
+          }
         }
+
+        if (match && !textMatch) {
+          var nameLower = entry.definition.name.toLowerCase();
+          match = self.filter.querySpec().text.every(function (text) {
+            return nameLower.indexOf(text.toLowerCase()) !== -1
+          });
+        }
+
+        return match;
       });
-      return result;
     });
 
     self.tableName = null;
@@ -190,7 +212,7 @@ var AssistDbEntry = (function () {
         type: type,
         identifierChain: $.map(self.getHierarchy(), function (name) { return { name: name }})
       },
-      showInAssistEnabled: false,
+      showInAssistEnabled: self.navigationSettings.rightAssist,
       orientation: self.navigationSettings.rightAssist ? 'left' : 'right',
       sourceType: self.sourceType,
       defaultDatabase: self.databaseName,
@@ -211,7 +233,6 @@ var AssistDbEntry = (function () {
   AssistDbEntry.prototype.toggleSearch = function () {
     var self = this;
     self.isSearchVisible(!self.isSearchVisible());
-    self.editingSearch(self.isSearchVisible());
   };
 
   AssistDbEntry.prototype.triggerRefresh = function (data, event) {
@@ -268,7 +289,7 @@ var AssistDbEntry = (function () {
     }
   };
 
-  AssistDbEntry.prototype.loadEntries = function(callback) {
+  AssistDbEntry.prototype.loadEntries = function(callback, silenceErrors) {
     var self = this;
     if (!self.expandable || self.loading()) {
       return;
@@ -281,6 +302,12 @@ var AssistDbEntry = (function () {
       self.entries([]);
       self.hasErrors(false);
       self.loading(false);
+      self.loaded = true;
+
+      if (data.status === 0 && data.code === 500 && !data.tables_meta) {
+        self.hasErrors(true);
+        return;
+      }
 
       var newEntries = [];
       var index = 0;
@@ -388,6 +415,7 @@ var AssistDbEntry = (function () {
     var errorCallback = function () {
       self.hasErrors(true);
       self.loading(false);
+      self.loaded = true;
       loadEntriesDeferred.resolve([]);
     };
 
@@ -425,7 +453,8 @@ var AssistDbEntry = (function () {
       sourceType: self.assistDbSource.sourceType,
       hierarchy: self.getHierarchy(),
       successCallback: successCallback,
-      errorCallback: errorCallback
+      errorCallback: errorCallback,
+      silenceErrors: !!silenceErrors
     });
   };
 
@@ -442,7 +471,7 @@ var AssistDbEntry = (function () {
    */
   AssistDbEntry.prototype.createEntry = function (definition) {
     var self = this;
-    return new AssistDbEntry(definition, self, self.assistDbSource, null, self.i18n, self.navigationSettings, self.sortFunctions)
+    return new AssistDbEntry(definition, self, self.assistDbSource, self.filter, self.i18n, self.navigationSettings, self.sortFunctions)
   };
 
   AssistDbEntry.prototype.getHierarchy = function () {

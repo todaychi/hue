@@ -33,6 +33,7 @@ from django.utils.translation import ugettext_lazy as _
 
 from metadata.metadata_sites import get_navigator_audit_log_dir, get_navigator_audit_max_file_size
 
+from desktop import appmanager
 from desktop.redaction.engine import parse_redaction_policy_from_file
 from desktop.lib.conf import Config, ConfigSection, UnspecifiedConfigSection,\
                              coerce_bool, coerce_csv, coerce_json_dict,\
@@ -43,6 +44,10 @@ from desktop.lib.paths import get_desktop_root
 
 LOG = logging.getLogger(__name__)
 
+
+def is_oozie_enabled():
+  """Oozie needs to be available as it is the backend."""
+  return len([app for app in appmanager.DESKTOP_MODULES if app.name == 'oozie']) > 0 and is_hue4()
 
 def coerce_database(database):
   if database == 'mysql':
@@ -994,7 +999,6 @@ LDAP = ConfigSection(
       type=int,
       help=_("Possible values for trace_level are 0 for no logging, 1 for only logging the method calls with arguments,"
              "2 for logging the method calls with arguments and the complete results and 9 for also logging the traceback of method calls.")),
-
     LDAP_SERVERS = UnspecifiedConfigSection(
       key="ldap_servers",
       help=_("LDAP server record."),
@@ -1264,6 +1268,12 @@ DJANGO_DEBUG_MODE = Config(
   default=True
 )
 
+DEV = Config("dev",
+   type=coerce_bool,
+   default=False,
+   help=_("Enable development mode, where notably static files are not cached.")
+)
+
 HTTP_500_DEBUG_MODE = Config(
   key='http_500_debug_mode',
   help=_('Enable or disable debugging information in the 500 internal server error response. '
@@ -1307,25 +1317,11 @@ DJANGO_EMAIL_BACKEND = Config(
   default="django.core.mail.backends.smtp.EmailBackend"
 )
 
-ENABLE_SQL_SYNTAX_CHECK = Config( # To remove when syntax check is ready
+ENABLE_SQL_SYNTAX_CHECK = Config(
   key='enable_sql_syntax_check',
-  default=False,
-  type=coerce_bool,
-  help=_('Choose whether to enable SQL syntax check or not.')
-)
-
-USE_NEW_GLOBAL_SEARCH = Config( # To remove when the new global search is ready
-  key='use_new_global_search',
   default=True,
   type=coerce_bool,
-  help=_('Choose whether to use the new global search or not.')
-)
-
-USE_NEW_CONTEXT_POPOVER = Config( # To remove when the new context popover is ready
-  key='use_new_context_popover',
-  default=False,
-  type=coerce_bool,
-  help=_('Choose whether to use the new context popover or not.')
+  help=_('Choose whether to enable SQL syntax check or not.')
 )
 
 USE_NEW_AUTOCOMPLETER = Config( # This now refers to the new autocomplete dropdown
@@ -1372,6 +1368,13 @@ USE_DEFAULT_CONFIGURATION = Config(
   default=False,
   type=coerce_bool,
   help=_('Enable saved default configurations for Hive, Impala, Spark, and Oozie.')
+)
+
+USE_NEW_CHARTS = Config(
+  key='use_new_charts',
+  default=False,
+  type=coerce_bool,
+  help=_('Choose whether to use new charting library across the whole Hue.')
 )
 
 

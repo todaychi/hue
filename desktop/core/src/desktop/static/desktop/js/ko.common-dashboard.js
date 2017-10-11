@@ -91,10 +91,24 @@ var Column = function (size, rows, vm) {
     }
   }
 
-  self.addColumn = function () {
+  self.addColumn = function (toTheRight) {
     var col = new Column(0, [], vm);
-    vm.columns.push(col);
+    if (toTheRight) {
+      vm.columns.push(col);
+    }
+    else {
+      vm.columns.unshift(col);
+    }
     col.expandColumn();
+    col.expandColumn(); // Twice
+  }
+
+  self.addColumnRight = function () {
+    self.addColumn(true);
+  }
+
+  self.addColumnLeft = function () {
+    self.addColumn();
   }
 
   self.removeColumn = function () {
@@ -221,7 +235,7 @@ var Widget = function (params) {
   self.widgetType = ko.observable(typeof params.widgetType != "undefined" && params.widgetType != null ? params.widgetType : "empty-widget");
   self.properties = ko.observable(typeof params.properties != "undefined" && params.properties != null ? params.properties : {});
   self.offset = ko.observable(typeof params.offset != "undefined" && params.offset != null ? params.offset : 0).extend({ numeric: 0 });
-  self.isLoading = ko.observable(typeof params.loading != "undefined" && params.loading != null ? params.loading : false);
+  self.isLoading = ko.observable(typeof params.isLoading != "undefined" && params.isLoading != null ? params.isLoading : false);
 
   self.klass = ko.computed(function () {
     return "card card-widget span" + self.size() + (self.offset() * 1 > 0 ? " offset" + self.offset() : "");

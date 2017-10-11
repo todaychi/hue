@@ -60,7 +60,7 @@
 
   ${ commonHeaderFooterComponents.header_i18n_redirection(user, is_s3_enabled, apps) }
 
-  % if not conf.DJANGO_DEBUG_MODE.get():
+  % if not conf.DEV.get():
   <script src="${ static('desktop/js/hue.errorcatcher.js') }"></script>
   % endif
   <script src="${ static('desktop/js/hue4.utils.js') }"></script>
@@ -201,11 +201,7 @@ ${ hueIcons.symbols() }
         </div>
         <!-- /ko -->
 
-        % if conf.USE_NEW_GLOBAL_SEARCH.get():
-          <div class="search-container-top" data-bind="component: 'hue-global-search'"></div>
-        %else:
-          <div class="search-container-top-old" data-bind="component: 'hue-global-search-old'"></div>
-        % endif
+        <div class="search-container-top" data-bind="component: 'hue-global-search'"></div>
       </div>
 
       <div class="top-nav-right">
@@ -251,6 +247,12 @@ ${ hueIcons.symbols() }
     <a class="pointer inactive-action pull-right" onclick="huePubSub.publish('mini.jb.expand'); huePubSub.publish('hide.jobs.panel')"><i class="fa fa-fw fa-expand" title="${ _('Open Job Browser') }"></i></a>
     <ul class="nav nav-pills">
       <li class="active" data-interface="jobs"><a href="javascript:void(0)" onclick="huePubSub.publish('mini.jb.navigate', 'jobs')">${_('Jobs')}</a></li>
+      % if 'jobbrowser' in apps:
+      <% from jobbrowser.conf import ENABLE_QUERY_BROWSER %>
+      % if ENABLE_QUERY_BROWSER.get():
+        <li data-interface="queries"><a href="javascript:void(0)" onclick="huePubSub.publish('mini.jb.navigate', 'queries')">${_('Queries')}</a></li>
+      % endif
+      % endif
       <li data-interface="workflows"><a href="javascript:void(0)" onclick="huePubSub.publish('mini.jb.navigate', 'workflows')">${_('Workflows')}</a></li>
       <li data-interface="schedules"><a href="javascript:void(0)" onclick="huePubSub.publish('mini.jb.navigate', 'schedules')">${_('Schedules')}</a></li>
     </ul>
@@ -389,6 +391,7 @@ ${ hueIcons.symbols() }
     </div>
 
     <div class="context-panel" data-bind="css: { 'visible': contextPanelVisible }">
+      <a href="javascript: void(0);" class="inactive-action" style="position: absolute; left: 6px; top: 4px;" data-bind="click: function () { huePubSub.publish('context.panel.visible.editor', false); }"><i class="fa fa-chevron-right"></i></a>
       <ul class="nav nav-tabs">
         <!-- ko if: sessionsAvailable -->
         <li class="active"><a href="#sessionsTab" data-toggle="tab" data-bind="visible: sessionsAvailable">${_('Sessions')}</a></li>
@@ -418,6 +421,7 @@ ${ commonshare() | n,unicode }
 <script src="${ static('desktop/ext/js/tether.js') }"></script>
 <script src="${ static('desktop/ext/js/shepherd.min.js') }"></script>
 <script src="${ static('desktop/js/bootstrap-tooltip.js') }"></script>
+<script src="${ static('desktop/js/bootstrap-typeahead-touchscreen.js') }"></script>
 <script src="${ static('desktop/ext/js/bootstrap-better-typeahead.min.js') }"></script>
 <script src="${ static('desktop/ext/js/fileuploader.js') }"></script>
 <script src="${ static('desktop/ext/js/filesize.min.js') }"></script>
@@ -447,11 +451,8 @@ ${ commonshare() | n,unicode }
 <script src="${ static('desktop/js/jquery.tablescroller.js') }"></script>
 <script src="${ static('desktop/js/jquery.tableextender.js') }"></script>
 <script src="${ static('desktop/js/jquery.tableextender2.js') }"></script>
-<script src="${ static('desktop/ext/js/d3.v3.js') }"></script>
-<script src="${ static('desktop/ext/js/d3.v4.js') }"></script>
 <script src="${ static('desktop/js/hue.colors.js') }"></script>
 <script src="${ static('desktop/js/apiHelper.js') }"></script>
-<script src="${ static('desktop/js/ko.charts.js') }"></script>
 <script src="${ static('desktop/ext/js/knockout-sortable.min.js') }"></script>
 <script src="${ static('desktop/ext/js/knockout.validation.min.js') }"></script>
 <script src="${ static('desktop/ext/js/bootstrap-editable.min.js') }"></script>
@@ -558,11 +559,11 @@ ${ smart_unicode(login_modal(request).content) | n,unicode }
         home: { url: '/home*', title: '${_('Home')}' },
         indexer: { url: '/indexer/indexer/', title: '${_('Indexer')}' },
         collections: { url: '/dashboard/admin/collections', title: '${_('Search')}' },
-        % if ENABLE_NEW_INDEXER.get():
+        % if hasattr(ENABLE_NEW_INDEXER, 'get') and ENABLE_NEW_INDEXER.get():
         indexes: { url: '/indexer/indexes/*', title: '${_('Indexes')}' },
-        %else:
+        % else:
         indexes: { url: '/indexer/', title: '${_('Indexes')}' },
-        %endif
+        % endif
         importer: { url: '/indexer/importer/', title: '${_('Importer')}' },
         useradmin_users: { url: '/useradmin/users', title: '${_('User Admin - Users')}' },
         useradmin_groups: { url: '/useradmin/groups', title: '${_('User Admin - Groups')}' },
@@ -599,7 +600,7 @@ ${ smart_unicode(login_modal(request).content) | n,unicode }
           'useradmin_permissions', 'useradmin_editpermission', 'useradmin_configurations', 'useradmin_newuser',
           'useradmin_addldapusers', 'useradmin_addldapgroups', 'useradmin_edituser', 'importer',
           'security_hive', 'security_hdfs', 'security_hive2', 'security_solr', 'logs',
-          % if ENABLE_NEW_INDEXER.get():
+          % if hasattr(ENABLE_NEW_INDEXER, 'get') and ENABLE_NEW_INDEXER.get():
             'indexes',
           % endif
           % if other_apps:
@@ -741,7 +742,7 @@ ${ smart_unicode(login_modal(request).content) | n,unicode }
         // Only load CSS and JS files that are not loaded before
         self.processHeaders = function(response){
           var r = $('<span>').html(response);
-          % if conf.DJANGO_DEBUG_MODE.get():
+          % if conf.DEV.get():
           r.find('link').each(function () {
             $(this).attr('href', $(this).attr('href') + '?' + Math.random())
           });
@@ -770,7 +771,14 @@ ${ smart_unicode(login_modal(request).content) | n,unicode }
           opts.callback(self.processHeaders(opts.response));
         });
 
-        self.loadApp = function(app){
+        self.loadApp = function(app, loadDeep) {
+          if (self.currentApp() == 'editor') {
+           var vm = ko.dataFor($('#editorComponents')[0]);
+            if (vm.isPresentationMode()) {
+              vm.isPresentationMode(false);
+            }
+          }
+
           self.currentApp(app);
           if (!app.startsWith('security')) {
             self.lastContext = null;
@@ -807,20 +815,25 @@ ${ smart_unicode(login_modal(request).content) | n,unicode }
             }
             var baseURL = EMBEDDABLE_PAGE_URLS[app].url;
             if (self.currentContextParams() !== null) {
-              var route = new page.Route(baseURL);
-              route.keys.forEach(function (key) {
-                if (key.name === 0){
-                  if (typeof self.currentContextParams()[key.name] !== 'undefined') {
-                    baseURL = baseURL.replace('*', self.currentContextParams()[key.name]);
+              if (loadDeep && self.currentContextParams()[0]) {
+                baseURL += self.currentContextParams()[0];
+              }
+              else {
+                var route = new page.Route(baseURL);
+                route.keys.forEach(function (key) {
+                  if (key.name === 0) {
+                    if (typeof self.currentContextParams()[key.name] !== 'undefined') {
+                      baseURL = baseURL.replace('*', self.currentContextParams()[key.name]);
+                    }
+                    else {
+                      baseURL = baseURL.replace('*', '');
+                    }
                   }
                   else {
-                    baseURL = baseURL.replace('*', '');
+                    baseURL = baseURL.replace(':' + key.name, self.currentContextParams()[key.name]);
                   }
-                }
-                else {
-                  baseURL = baseURL.replace(':' + key.name, self.currentContextParams()[key.name]);
-                }
-              });
+                });
+              }
               self.currentContextParams(null);
             }
             if (self.currentQueryString() !== null) {
@@ -868,15 +881,8 @@ ${ smart_unicode(login_modal(request).content) | n,unicode }
             self.isLoadingEmbeddable(false);
           }
           window.document.title = 'Hue - ' + EMBEDDABLE_PAGE_URLS[app].title;
-          if (app === 'editor'){
-            var affix = (window.location.getParameter('type') ? '-' + window.location.getParameter('type') : '');
-            window.resumeAppIntervals(app + affix);
-            huePubSub.resumeAppSubscribers(app + affix);
-          }
-          else {
-            window.resumeAppIntervals(app);
-            huePubSub.resumeAppSubscribers(app);
-          }
+          window.resumeAppIntervals(app);
+          huePubSub.resumeAppSubscribers(app);
           $('.embeddable').hide();
           $('#embeddable_' + app).show();
           huePubSub.publish('app.gained.focus', app);
@@ -891,18 +897,24 @@ ${ smart_unicode(login_modal(request).content) | n,unicode }
           $('.dz-drag-hover').removeClass('dz-drag-hover');
         };
 
+        var openImporter = function (path) {
+          self.loadApp('importer');
+          self.getActiveAppViewModel(function (vm) {
+            vm.createWizard.source.path(path);
+          });
+        };
+
         self.dropzoneComplete = function (path) {
           if (path.toLowerCase().endsWith('.csv')){
-            self.loadApp('importer');
-            self.getActiveAppViewModel(function (vm) {
-              vm.createWizard.source.path(path);
-            });
+            openImporter(path);
           }
           else {
             huePubSub.publish('open.link', '/filebrowser/view=' + path);
           }
           $('.dz-drag-hover').removeClass('dz-drag-hover');
         };
+
+        huePubSub.subscribe('open.in.importer', openImporter);
 
         // prepend /hue to all the link on this page
         $('a[href]').each(function () {
@@ -1084,7 +1096,11 @@ ${ smart_unicode(login_modal(request).content) | n,unicode }
           { url: '/useradmin', app: 'useradmin_users' },
           % if other_apps:
             % for other in other_apps:
-              { url: '/${ other.display_name }', app: '${ other.display_name }' },
+              { url: '/${ other.display_name }*', app: function (ctx) {
+                self.currentContextParams(ctx.params);
+                self.currentQueryString(ctx.querystring);
+                self.loadApp('${ other.display_name }', true)
+              }}
             % endfor
           % endif
         ];
@@ -1135,6 +1151,7 @@ ${ smart_unicode(login_modal(request).content) | n,unicode }
           if (!self.assistWithoutStorage()){
             self.apiHelper.setInTotalStorage('assist', 'left_assist_panel_visible', val);
           }
+          hueAnalytics.convert('hue', 'leftAssistVisible/' + val);
           window.setTimeout(function () {
             huePubSub.publish('split.panel.resized');
           }, 0);
@@ -1145,6 +1162,7 @@ ${ smart_unicode(login_modal(request).content) | n,unicode }
           if (!self.assistWithoutStorage()){
             self.apiHelper.setInTotalStorage('assist', 'right_assist_panel_visible', val);
           }
+          hueAnalytics.convert('hue', 'rightAssistVisible/' + val)
           window.setTimeout(function () {
             huePubSub.publish('reposition.scroll.anchor.up');
             huePubSub.publish('nicescroll.resize');
@@ -1209,6 +1227,11 @@ ${ smart_unicode(login_modal(request).content) | n,unicode }
           }, 0);
         });
 
+        huePubSub.subscribe('left.assist.show', function () {
+          if (!self.leftAssistVisible()) {
+            self.leftAssistVisible(true);
+          }
+        })
       }
 
       var sidePanelViewModel = new SidePanelViewModel();
@@ -1231,6 +1254,7 @@ ${ smart_unicode(login_modal(request).content) | n,unicode }
         self.leftNavVisible = ko.observable(false);
         self.leftNavVisible.subscribe(function (val) {
           huePubSub.publish('left.nav.open.toggle', val);
+          hueAnalytics.convert('hue', 'leftNavVisible/' + val);
         });
 
         self.onePageViewModel.currentApp.subscribe(function () {

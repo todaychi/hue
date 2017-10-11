@@ -1109,6 +1109,7 @@ def massaged_oozie_jobs_for_json(oozie_jobs, user, just_sla=False):
         'pauseTime': hasattr(job, 'pauseTime') and job.pauseTime and format_time(job.endTime) or None,
         'concurrency': hasattr(job, 'concurrency') and job.concurrency or None,
         'endTimeInMillis': job.endTime and time.mktime(job.endTime) or 0,
+        'lastActionInMillis': hasattr(job, 'lastAction') and job.lastAction and time.mktime(job.lastAction) or 0,
         'status': job.status,
         'group': job.group,
         'isRunning': job.is_running(),

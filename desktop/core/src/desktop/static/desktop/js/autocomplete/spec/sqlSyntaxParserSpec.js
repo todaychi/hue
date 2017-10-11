@@ -26,19 +26,19 @@
       expect(result).toBeFalsy();
     });
 
-    it('should not find errors for "SEL"', function () {
+    it('should report incomplete statement for "SEL"', function () {
       var result = sqlSyntaxParser.parseSyntax('SEL', '');
-      expect(result).toBeFalsy();
+      expect(result.incompleteStatement).toBeTruthy();
     });
 
-    it('should not find errors for "SELECT"', function () {
+    it('should report incomplete statement for "SELECT"', function () {
       var result = sqlSyntaxParser.parseSyntax('SELECT', '');
-      expect(result).toBeFalsy();
+      expect(result.incompleteStatement).toBeTruthy();
     });
 
-    it('should not find errors for "SELECT "', function () {
+    it('should not report incomplete statement for "SELECT "', function () {
       var result = sqlSyntaxParser.parseSyntax('SELECT ', '');
-      expect(result).toBeFalsy();
+      expect(result.incompleteStatement).toBeTruthy();
     });
 
     it('should not find errors for "SELECT *"', function () {
@@ -46,9 +46,9 @@
       expect(result).toBeFalsy();
     });
 
-    it('should not find errors for "SELECT * FR"', function () {
+    it('should not report incomplete statement for "SELECT * FR"', function () {
       var result = sqlSyntaxParser.parseSyntax('SELECT * FR', '');
-      expect(result).toBeFalsy();
+      expect(result.incompleteStatement).toBeTruthy();
     });
 
     it('should find errors for "SLELECT "', function() {
@@ -142,7 +142,7 @@
       it('should suggest expected words for "SLELECT "', function() {
         var result = sqlSyntaxParser.parseSyntax('SLELECT ', '', 'hive');
         expect(result).toBeTruthy();
-        expect(expectedToStrings(result.expected)).toEqual(['SELECT', 'DELETE', 'SET', 'ALTER', 'INSERT', 'RELOAD', 'ANALYZE', 'CREATE', 'EXPLAIN', 'EXPORT', 'GRANT', 'IMPORT', 'LOAD', 'MSCK', 'REVOKE', 'SHOW', 'USE', 'DROP', 'FROM', 'TRUNCATE', 'UPDATE', 'WITH', 'DESCRIBE']);
+        expect(expectedToStrings(result.expected)).toEqual(['SELECT', 'DELETE', 'SET', 'ALTER', 'INSERT', 'RELOAD', 'ABORT', 'ANALYZE', 'CREATE', 'EXPLAIN', 'EXPORT', 'GRANT', 'IMPORT', 'LOAD', 'MSCK', 'REVOKE', 'SHOW', 'USE', 'DROP', 'FROM', 'TRUNCATE', 'UPDATE', 'WITH', 'DESCRIBE']);
       });
     });
 
@@ -150,7 +150,7 @@
       it('should suggest expected words for "SLELECT "', function() {
         var result = sqlSyntaxParser.parseSyntax('SLELECT ', '', 'impala');
         expect(result).toBeTruthy();
-        expect(expectedToStrings(result.expected)).toEqual(['SELECT', 'DELETE', 'SET', 'ALTER', 'INSERT', 'CREATE', 'EXPLAIN', 'GRANT', 'LOAD', 'REFRESH', 'REVOKE', 'SHOW', 'USE', 'COMPUTE', 'DROP', 'FROM', 'TRUNCATE', 'UPDATE', 'WITH', 'DESCRIBE', 'INVALIDATE']);
+        expect(expectedToStrings(result.expected)).toEqual(['SELECT', 'DELETE', 'SET', 'ALTER', 'INSERT', 'UPSERT', 'CREATE', 'EXPLAIN', 'GRANT', 'LOAD', 'REFRESH', 'REVOKE', 'SHOW', 'USE', 'COMPUTE', 'DROP', 'FROM', 'TRUNCATE', 'UPDATE', 'WITH', 'DESCRIBE', 'INVALIDATE']);
       });
     })
 

@@ -507,11 +507,15 @@
     init: function (element, valueAccessor) {
       var $element = $(element);
       var options = valueAccessor();
+      if ((ko.isObservable(options.text) && !options.text()) || !options.text) {
+        return;
+      }
       $element.addClass("draggableText");
 
       var $helper = $("<div>").text(ko.isObservable(options.text) ? options.text() : options.text).css("z-index", "99999");
       var dragStartX = -1;
       var dragStartY = -1;
+      var notifiedOnDragStarted = false;
       $element.draggable({
         helper: function () { return $helper },
         appendTo: "body",
@@ -519,6 +523,13 @@
           dragStartX = event.clientX;
           dragStartY = event.clientY;
           huePubSub.publish('draggable.text.meta', options.meta);
+          notifiedOnDragStarted = false;
+        },
+        drag: function (event) {
+          if (!notifiedOnDragStarted && Math.sqrt((dragStartX-event.clientX)*(dragStartX-event.clientX) + (dragStartY-event.clientY)*(dragStartY-event.clientY)) >= 10) {
+            huePubSub.publish('draggable.text.started', options.meta);
+            notifiedOnDragStarted = true;
+          }
         },
         stop: function (event) {
           if (Math.sqrt((dragStartX-event.clientX)*(dragStartX-event.clientX) + (dragStartY-event.clientY)*(dragStartY-event.clientY)) < 10) {
@@ -529,7 +540,9 @@
               $(elementAtStop).trigger('click');
             }
           }
-        },
+          notifiedOnDragStarted = false;
+          huePubSub.publish('draggable.text.stopped');
+        }
       });
     }
   };
@@ -930,13 +943,15 @@
             $menu.css('left', (event.clientX + menuWidth > $(window).width()) ? $(window).width() - menuWidth : event.clientX);
             $menu.css('top', (event.clientY + menuHeight > $(window).height()) ? $(window).height() - menuHeight : event.clientY);
             $menu.css('opacity', 1);
-            $(options.scrollContainer).one('scroll', hideMenu);
+            if (options.scrollContainer) {
+              $(options.scrollContainer).one('scroll', hideMenu);
+            }
             window.setTimeout(function () {
               $menu.data('active', false);
               $(document).one('click', hideMenu);
             }, 100);
           },
-          viewModel: viewModel
+          viewModel: options.viewModel || viewModel
         }, $menu[0]);
 
         ko.contextFor($menu[0]).$contextSourceElement = element;
@@ -1025,9 +1040,12 @@
         allBindings().logScrollerVisibilityEvent.subscribe(function () {
           window.setTimeout(autoLogScroll, 0);
         });
+      } else {
+        hueUtils.waitForRendered(element, function(el) { return el.is(':visible') }, autoLogScroll, 300);
+        ko.utils.domNodeDisposal.addDisposeCallback(element, function() {
+          window.clearTimeout($element.data('waitForRenderTimeout'));
+        });
       }
-
-      hueUtils.waitForRendered(element, function(el){ return el.is(':visible') }, autoLogScroll);
     }
   };
 
@@ -2009,6 +2027,7 @@
       var $resizer = $(element);
       var $contentPanel = $(".content-panel");
       var $execStatus = $resizer.prev('.snippet-execution-status');
+      var $variables = $resizer.siblings('.snippet-row').find('.variables');
 
       var lastEditorSize = $.totalStorage('hue.editor.editor.size') || 131;
       var editorHeight = Math.floor(lastEditorSize / 16);
@@ -2059,7 +2078,7 @@
         start: options.onStart ? options.onStart : function(){},
         drag: function (event, ui) {
           autoExpand = false;
-          var currentHeight = ui.offset.top + $contentPanel.scrollTop() - (125 + $execStatus.outerHeight(true));
+          var currentHeight = ui.offset.top + $contentPanel.scrollTop() - (125 + $execStatus.outerHeight(true) + $variables.outerHeight(true));
           $target.css("height", currentHeight + "px");
           ace().resize();
           ui.offset.top = 0;
@@ -3196,7 +3215,7 @@
         }
 
         var supportSelectFolder = !!selectFolder;
-        if (typeof allBindingsAccessor().filechooserOptions !== 'undefined' && typeof allBindingsAccessor().filechooserOptions.selectFolder !== 'undefined') {
+        if (allBindingsAccessor && typeof allBindingsAccessor().filechooserOptions !== 'undefined' && typeof allBindingsAccessor().filechooserOptions.selectFolder !== 'undefined') {
           supportSelectFolder = allBindingsAccessor().filechooserOptions.selectFolder;
         }
 
@@ -3229,7 +3248,16 @@
           filterExtensions: allBindingsAccessor && allBindingsAccessor().filechooserFilter ? allBindingsAccessor().filechooserFilter : "",
           displayOnlyFolders: allBindingsAccessor && allBindingsAccessor().filechooserOptions && allBindingsAccessor().filechooserOptions.displayOnlyFolders
         });
-        $("#chooseFile").modal("show");
+        if (isIE11) {
+          var oldFocus = jQuery().modal.Constructor.prototype.enforceFocus;
+          jQuery().modal.Constructor.prototype.enforceFocus = function() {};
+          $("#chooseFile").modal("show");
+          window.setTimeout(function () {
+            jQuery().modal.Constructor.prototype.enforceFocus = oldFocus;
+          }, 5000);
+        } else {
+          $("#chooseFile").modal("show");
+        }
         if (!isNestedModal) {
           $("#chooseFile").on("hidden", function () {
             $("body").removeClass("modal-open");
@@ -3597,6 +3625,7 @@
         if (self.editor.session.$backMarkers[marker].clazz.indexOf('hue-ace-syntax-') === 0) {
           var token = self.editor.session.$backMarkers[marker].token;
           delete token.syntaxError;
+          delete token.notFound;
           self.editor.session.removeMarker(self.editor.session.$backMarkers[marker].id);
         }
       }
@@ -3621,19 +3650,24 @@
         self.aceSqlSyntaxWorker.onmessage = function(e) {
           var suppressedRules = ApiHelper.getInstance().getFromTotalStorage('hue.syntax.checker', 'suppressedRules', {});
 
-          if (e.data.syntaxError && !suppressedRules[self.snippet.id() + e.data.syntaxError.ruleId]) {
+          if (e.data.syntaxError && e.data.syntaxError.ruleId && !suppressedRules[e.data.syntaxError.ruleId.toString() + e.data.syntaxError.text.toLowerCase()]) {
+            if (self.snippet.positionStatement() && SqlUtils.locationEquals(e.data.statementLocation, self.snippet.positionStatement().location)) {
+              self.snippet.positionStatement().syntaxError = true;
+            }
             if (hueDebug.showSyntaxParseResult) {
               console.log(e.data.syntaxError);
             }
-            var token = self.editor.session.getTokenAt(e.data.syntaxError.loc.first_line - 1, e.data.syntaxError.loc.first_column + 1);
-            if (token) {
-              token.syntaxError = e.data.syntaxError;
-              var AceRange = ace.require('ace/range').Range;
-              var range = new AceRange(e.data.syntaxError.loc.first_line - 1, e.data.syntaxError.loc.first_column, e.data.syntaxError.loc.last_line - 1, e.data.syntaxError.loc.first_column + e.data.syntaxError.text.length);
-              var markerId = self.editor.session.addMarker(range, 'hue-ace-syntax-error');
-              self.editor.session.$backMarkers[markerId].token = token;
-            } else {
-              console.warn("couldn't find a token at line: " + (e.data.syntaxError.loc.first_line - 1) + ", column: " + (e.data.syntaxError.loc.first_column + 1));
+            if (!e.data.syntaxError.incompleteStatement) {
+              var token = self.editor.session.getTokenAt(e.data.syntaxError.loc.first_line - 1, e.data.syntaxError.loc.first_column + 1);
+              // If no token is found it likely means that the parserresponse came back after the text was changed,
+              // at which point it will trigger another parse so we can ignore this.
+              if (token) {
+                token.syntaxError = e.data.syntaxError;
+                var AceRange = ace.require('ace/range').Range;
+                var range = new AceRange(e.data.syntaxError.loc.first_line - 1, e.data.syntaxError.loc.first_column, e.data.syntaxError.loc.last_line - 1, e.data.syntaxError.loc.first_column + e.data.syntaxError.text.length);
+                var markerId = self.editor.session.addMarker(range, 'hue-ace-syntax-error');
+                self.editor.session.$backMarkers[markerId].token = token;
+              }
             }
           }
         };
@@ -3707,15 +3741,16 @@
           // Append table aliases
           for (var i = 0; i < allLocations.length; i++) {
             var location = allLocations[i];
-            if (location.type === 'alias' && (location.source === 'table' || location.source === 'subquery')) {
+            if (location.type === 'alias' && (location.source === 'column' || location.source === 'table' || location.source === 'subquery' || location.source === 'cte')) {
               possibleValues.push({ name: location.alias.toLowerCase() });
             }
           }
 
-          var tokenValLower = token.value.toLowerCase();
+          var tokenValLower = token.actualValue.toLowerCase();
           // Break if found
           for (var i = 0; i < possibleValues.length; i++) {
-            if (possibleValues[i].name.toLowerCase() === tokenValLower) {
+            possibleValues[i].name = SqlUtils.backTickIfNeeded(self.snippet.type(), possibleValues[i].name);
+            if ((possibleValues[i].name.toLowerCase() === tokenValLower) || (tokenValLower.indexOf('`') === 0 && tokenValLower.replace(/`/g, '') === possibleValues[i].name.toLowerCase())) {
               return;
             }
           }
@@ -3733,7 +3768,7 @@
 
           var weightedExpected = $.map(possibleValues, function (val) {
             return {
-              text: isLowerCase ? val.name : val.name.toUpperCase(),
+              text: isLowerCase ? val.name.toLowerCase() : val.name,
               distance: SqlParseSupport.stringDistance(token.value, val.name)
             }
           });
@@ -3758,11 +3793,12 @@
             })
           }
 
-          var AceRange = ace.require('ace/range').Range;
-          var range = new AceRange(token.parseLocation.location.first_line - 1, token.parseLocation.location.first_column - 1, token.parseLocation.location.last_line - 1, token.parseLocation.location.last_column - 1);
-          var markerId = self.editor.session.addMarker(range, 'hue-ace-syntax-warning');
-          self.editor.session.$backMarkers[markerId].token = token;
-
+          if (token.parseLocation) {
+            var AceRange = ace.require('ace/range').Range;
+            var range = new AceRange(token.parseLocation.location.first_line - 1, token.parseLocation.location.first_column - 1, token.parseLocation.location.last_line - 1, token.parseLocation.location.last_column - 1);
+            var markerId = self.editor.session.addMarker(range, 'hue-ace-syntax-warning');
+            self.editor.session.$backMarkers[markerId].token = token;
+          }
         });
       }
     };
@@ -3827,10 +3863,21 @@
           }
 
           var token = self.editor.session.getTokenAt(location.location.first_line - 1, location.location.first_column);
+
           if (token && token.value && /`$/.test(token.value)) {
             // Ace getTokenAt() thinks the first ` is a token, column +1 will include the first and last.
             token = self.editor.session.getTokenAt(location.location.first_line - 1, location.location.first_column + 1);
           }
+          if (token && token.value && /^\s*\$\{\s*$/.test(token.value)) {
+            token = null;
+          }
+          if (token && token.value) {
+            var AceRange = ace.require('ace/range').Range;
+            var actualValue = self.editor.session.getTextRange(new AceRange(location.location.first_line - 1, location.location.first_column - 1, location.location.last_line - 1, location.location.last_column - 1));
+            // The Ace tokenizer also splits on '{', '(' etc. hence the actual value;
+            token.actualValue = actualValue;
+          }
+
           if (token !== null) {
             token.parseLocation = location;
             activeTokens.push(token);
@@ -3980,8 +4027,7 @@
             if (item.line !== null) {
               if (type === 'error') {
                 editor.addError(item.message, item.line + offset);
-              }
-              else {
+              } else {
                 editor.addWarning(item.message, item.line + offset);
               }
               if (cnt == 0) {
@@ -4091,6 +4137,14 @@
         editor.customMenuOptions.getErrorHighlighting = function () {
           return errorHighlightingEnabled;
         };
+        editor.customMenuOptions.setClearIgnoredSyntaxChecks = function (flag) {
+          ApiHelper.getInstance().setInTotalStorage('hue.syntax.checker', 'suppressedRules', {});
+          $('#setClearIgnoredSyntaxChecks').hide();
+          $('#setClearIgnoredSyntaxChecks').before('<div style="margin-top:5px;float:right;">done</div>');
+        };
+        editor.customMenuOptions.getClearIgnoredSyntaxChecks = function () {
+          return false;
+        }
       }
 
       $.extend(editorOptions, aceOptions);
@@ -4307,7 +4361,7 @@
               } else if (token !== null && token.notFound) {
                 tooltipTimeout = window.setTimeout(function () {
                   // TODO: i18n
-                  if (token.notFound) {
+                  if (token.notFound && token.syntaxError) {
                     var tooltipText;
                     if (token.syntaxError.expected.length > 0) {
                       tooltipText = SyntaxCheckerGlobals.i18n.didYouMean + ' "' + token.syntaxError.expected[0].text + '"?';
@@ -4318,7 +4372,7 @@
                     contextTooltip.show(tooltipText, endCoordinates.pageX, endCoordinates.pageY + editor.renderer.lineHeight + 3);
                   }
                 }, 500);
-              } else if (token !== null && token.syntaxError) {
+              } else if (token !== null && token.syntaxError && !token.syntaxError.incompleteStatement) {
                 tooltipTimeout = window.setTimeout(function () {
                   // TODO: i18n
                   if (token.syntaxError) {
@@ -4621,6 +4675,16 @@
         dblClickHdfsItemSub.remove();
       });
 
+      var dblClickAdlsItemSub = huePubSub.subscribe("assist.dblClickAdlsItem", function(assistHdfsEntry) {
+        if ($el.data("last-active-editor")) {
+          editor.session.insert(editor.getCursorPosition(), "adl:/" + assistHdfsEntry.path + "'");
+        }
+      });
+
+      disposeFunctions.push(function () {
+        dblClickAdlsItemSub.remove();
+      });
+
 
       var dblClickGitItemSub = huePubSub.subscribe("assist.dblClickGitItem", function(assistGitEntry) {
         if ($el.data("last-active-editor")) {
@@ -4726,7 +4790,7 @@
         drop: function (e, ui) {
           var position = editor.renderer.screenToTextCoordinates(e.clientX, e.clientY);
           var text = ui.helper.text();
-          if (lastMeta.type === 's3' || lastMeta.type === 'hdfs'){
+          if (lastMeta.type === 's3' || lastMeta.type === 'hdfs' || lastMeta.type === 'adls'){
             text = "'" + lastMeta.definition.path + "'";
           }
           editor.moveCursorToPosition(position);
@@ -4864,12 +4928,15 @@
             }
           }
           if (!conflictingWithErrorMarkers) {
-            editor.session.addMarker(new AceRange(range.start.row, range.start.column, range.end.row, range.end.column), 'highlighted', 'line');
-            ace.require('ace/lib/dom').importCssString('.highlighted {\
-                background-color: #E3F7FF;\
-                position: absolute;\
-            }');
-            editor.scrollToLine(range.start.row, true, true, function () {});
+            var lineOffset = snippet.lastAceSelectionRowOffset();
+            window.setTimeout(function () {
+              editor.session.addMarker(new AceRange(range.start.row + lineOffset, range.start.column, range.end.row + lineOffset, range.end.column), 'highlighted', 'line');
+              ace.require('ace/lib/dom').importCssString('.highlighted {\
+                  background-color: #E3F7FF;\
+                  position: absolute;\
+              }');
+              editor.scrollToLine(range.start.row + lineOffset, true, true, function () {});
+            }, 0);
           }
         }
         try {
@@ -5800,6 +5867,7 @@
           });
 
           element.innerHTML = '<div class="ace_editor ace-hue"><div class="ace_layer" style="position: static;">' + res.join('') + '</div></div>';
+          $(element).find('.ace_invisible_space').remove();
         });
       }
 
@@ -5937,6 +6005,7 @@
       $element.jHueHdfsTree({
         home: '',
         isS3: !!options.isS3,
+        root: options.root,
         initialPath: options.path,
         withTopPadding: false,
         onPathChange: function (path) {
@@ -6215,6 +6284,7 @@
           $('.hoverMsg').addClass('hide');
           $('#progressStatus').removeClass('hide');
           $('#progressStatusBar').removeClass('hide');
+          $('#progressStatus .progress-row').remove();
           $('#progressStatusBar div').css('width', '0');
         },
         uploadprogress: function (file, progress) {
@@ -6274,6 +6344,85 @@
     init: function (element, valueAccessor) {
       $(element).jHueRowSelector();
     }
-  }
+  };
+
+  //https://stackoverflow.com/questions/19865364/knockoutjs-linking-value-from-a-input-to-a-datalist-value
+  ko.bindingHandlers.datalist = (function () {
+    function getVal(rawItem, prop) {
+      var item = ko.unwrap(rawItem);
+      return item && prop ? ko.unwrap(item[prop]) : item;
+    }
+
+    function findItem(options, prop, ref) {
+      return ko.utils.arrayFirst(options, function (item) {
+        return ref === getVal(item, prop);
+      });
+    }
+    return {
+      init: function (element, valueAccessor, allBindingsAccessor) {
+        var setup = valueAccessor(),
+          textProperty = ko.unwrap(setup.optionsText),
+          valueProperty = ko.unwrap(setup.optionsValue),
+          dataItems = ko.unwrap(setup.options),
+          myValue = setup.value,
+          koValue = allBindingsAccessor().value,
+          datalist = document.createElement("DATALIST");
+
+        // create an associated <datalist> element
+        datalist.id = element.getAttribute("list");
+        document.body.appendChild(datalist);
+
+        // when the value is changed, write to the associated myValue observable
+        function onNewValue(newVal) {
+          var setup = valueAccessor(),
+            dataItems = ko.unwrap(setup.options),
+            selectedItem = findItem(dataItems, textProperty, newVal),
+            newValue = selectedItem ? getVal(selectedItem, valueProperty) : newVal;
+
+          if (ko.isWriteableObservable(myValue)) {
+            myValue(newValue);
+          }
+        }
+
+        // listen for value changes
+        // - either via KO's value binding (preferred) or the change event
+        if (ko.isSubscribable(koValue)) {
+          var onNewValueSubscription = koValue.subscribe(onNewValue);
+          ko.utils.domNodeDisposal.addDisposeCallback(element, function() {
+            onNewValueSubscription.remove();
+          });
+        } else {
+          var event = allBindingsAccessor().valueUpdate === "afterkeydown" ? "input" : "change";
+          ko.utils.registerEventHandler(element, event, function () {
+            onNewValue(this.value);
+          });
+        }
+
+        // init the element's value
+        // - either via the myValue observable (preferred) or KO's value binding
+        if (ko.isObservable(myValue) && myValue()) {
+          var selectedItem = findItem(dataItems, valueProperty, myValue());
+          element.value = selectedItem ? getVal(selectedItem, textProperty) : myValue();
+        } else if (ko.isObservable(koValue) && koValue()) {
+          onNewValue(koValue());
+        }
+      },
+      update: function (element, valueAccessor) {
+        var setup = valueAccessor(),
+          datalist = element.list,
+          dataItems = ko.unwrap(setup.options),
+          textProperty = ko.unwrap(setup.optionsText);
+
+        // rebuild list of options when an underlying observable changes
+        datalist.innerHTML = "";
+        ko.utils.arrayForEach(dataItems, function (item) {
+          var option = document.createElement("OPTION");
+          option.value = getVal(item, textProperty);
+          datalist.appendChild(option);
+        });
+        ko.utils.triggerEvent(element, "change");
+      }
+    };
+  })();
 
 })();

@@ -231,8 +231,12 @@ class Collection2(object):
       schema_fields = schema_fields['schema']['fields']
     except Exception, e:
       LOG.warn('/luke call did not succeed: %s' % e)
-      fields = api.schema_fields(name)
-      schema_fields = Collection2._make_luke_from_schema_fields(fields)
+      try:
+        fields = api.schema_fields(name)
+        schema_fields = Collection2._make_luke_from_schema_fields(fields)
+      except Exception, e:
+        LOG.error('Could not access collection: %s' % e)
+        return []
 
     return sorted([self._make_field(field, attributes) for field, attributes in schema_fields.iteritems()])
 
@@ -509,11 +513,10 @@ def augment_solr_response(response, collection, query):
           column = 'count'
           agg_keys = [key for key, value in counts[0].items() if key.lower().startswith('agg_')]
           if len(collection_facet['properties']['facets']) == 1 and agg_keys:
-            legend = agg_keys[0].split(':', 2)[1]
             column = agg_keys[0]
           else:
-            legend = facet['field']
             agg_keys = [column]
+          legend = facet['field']
 
           _augment_stats_2d(name, facet, counts, selected_values, agg_keys, rows)
 
@@ -682,15 +685,21 @@ def __augment_stats_2d(counts, label, fq_fields, fq_values, fq_filter, _selected
       else:
         augmented.append(_get_augmented(count, val, label, _fq_values, _fq_fields, fq_filter, _selected_values)) # Needed?
 
-        # Go rec
-        _agg_keys = [key for key, value in bucket[agg_key]['buckets'][0].items() if key.lower().startswith('agg_') or key.lower().startswith('dim_')]
+        # List nested fields
+        _agg_keys = []
+        if agg_key in bucket and bucket[agg_key]['buckets']: # Protect against empty buckets
+          for key, value in bucket[agg_key]['buckets'][0].items():
+            if key.lower().startswith('agg_') or key.lower().startswith('dim_'):
+              _agg_keys.append(key)
         _agg_keys.sort(key=lambda a: a[4:])
 
+        # Go rec
         if not _agg_keys or len(_agg_keys) == 1 and _agg_keys[0].lower().startswith('dim_'):
           _agg_keys.insert(0, 'count')
         next_dim = []
         new_rows = []
-        augmented += __augment_stats_2d(bucket[agg_key]['buckets'], val, _fq_fields, _fq_values, fq_filter, _selected_values, _fields[1:], _agg_keys, next_dim)
+        if agg_key in bucket:
+          augmented += __augment_stats_2d(bucket[agg_key]['buckets'], val, _fq_fields, _fq_values, fq_filter, _selected_values, _fields[1:], _agg_keys, next_dim)
         for row in next_dim:
           new_rows.append(dim_row + row)
         dim_row = new_rows

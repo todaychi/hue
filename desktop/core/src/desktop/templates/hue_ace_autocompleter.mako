@@ -97,8 +97,10 @@ from desktop.views import _ko
       <div class="autocompleter-header"><i class="fa fa-fw fa-columns"></i> <span data-bind="text: details.name"></span></div>
       <div class="autocompleter-details-contents">
         <div class="autocompleter-details-contents-inner">
+          <!-- ko if: typeof details.database !== 'undefined' && typeof details.table !== 'undefined' -->
           <div class="details-attribute" ><i class="fa fa-table fa-fw"></i> <span data-bind="text: details.database"></span>.<span data-bind="text: details.table"></span></div>
-          <!-- ko if: partitionKey -->
+          <!-- /ko -->
+          <!-- ko if: typeof partitionKey !== 'undefined' && partitionKey -->
           <div class="details-attribute" ><i class="fa fa-key fa-fw"></i> ${ _('Partition key') }</div>
           <!-- /ko -->
           <!-- ko if: typeof details.primary_key !== 'undefined' && details.primary_key === 'true' -->
@@ -505,15 +507,15 @@ from desktop.views import _ko
           }
           return;
         }
-        var valueToInsert = self.suggestions.filtered()[self.selectedIndex()].value;
-
+        var selectedSuggestion = self.suggestions.filtered()[self.selectedIndex()];
+        var valueToInsert = selectedSuggestion.value;
+        if (selectedSuggestion.popular() && selectedSuggestion.category) {
+          hueAnalytics.convert('editor', 'popularAutocomplete/' + self.suggestions.filtered()[self.selectedIndex()].category.id)
+        }
         // Not always the case as we also match in comments
         if (valueToInsert.toLowerCase() === self.suggestions.filter().toLowerCase()) {
           // Close the autocompleter when the user has typed a complete suggestion
           self.detach();
-          if (emptyCallback) {
-            emptyCallback();
-          }
           return;
         }
         if (self.suggestions.filter()) {

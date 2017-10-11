@@ -633,7 +633,38 @@ var Collection = function (vm, collection) {
     });
   }
 
+  self.getTemplateField = function (name, fields) {
+    var _field = null;
+    $.each(fields, function (index, field) {
+      if (field && field.name() == name) {
+        _field = field;
+        return false;
+      }
+    });
+    return _field;
+  };
+
+  self._get_field_operations = function(field, facet) {
+	if (! field) {
+	  return HIT_OPTIONS;
+    } else if (isNumericColumn(field.type())) {
+      return NUMERIC_HIT_OPTIONS;
+    } else if (isDateTimeColumn(field.type())) {
+      return DATETIME_HIT_OPTIONS;
+    } else {
+      facet.properties.facets_form.aggregate.function('count');
+      return facet.widgetType() == 'hit-widget' ? ALPHA_HIT_COUNTER_OPTIONS : ALPHA_HIT_OPTIONS;
+    }
+  }
+
   self._addObservablesToFacet = function(facet, vm) {
+    if (facet.properties.facets_form) { // Only Solr 5+
+	  facet.properties.facets_form.metrics = ko.computed(function() {
+        var _field = self.getTemplateField(facet.widgetType() == 'hit-widget' ? facet.field() : facet.properties.facets_form.field(), self.template.fieldsAttributes());
+        return self._get_field_operations(_field, facet);
+      });
+    }
+
     facet.properties.limit.subscribe(function () {
       vm.search();
     });
@@ -652,7 +683,9 @@ var Collection = function (vm, collection) {
     }
     if (facet.properties.facets) {
       facet.properties.facets.subscribe(function(newValue) {
-        vm.search();
+        if (newValue.length > 0) {
+          vm.search();
+        }
       });
     }
 
@@ -689,8 +722,10 @@ var Collection = function (vm, collection) {
       });
 
       facet.template.fieldsSelected.subscribe(function(newValue) { // Could be more efficient as we don't need to research, just redraw
-        vm.getFacetFromQuery(facet.id()).resultHash('');
-        vm.search();
+        if (newValue.length > 0) {
+          vm.getFacetFromQuery(facet.id()).resultHash('');
+          vm.search();
+        }
       });
 
       facet.template.chartSettings.chartType.subscribe(function(newValue) {
@@ -909,7 +944,11 @@ var Collection = function (vm, collection) {
       'field': ko.mapping.toJS(facet.properties.facets_form.field),
       'limit': ko.mapping.toJS(facet.properties.facets_form.limit),
       'mincount': ko.mapping.toJS(facet.properties.facets_form.mincount),
-      'aggregate': ko.mapping.toJS(facet.properties.facets_form.aggregate),
+      'aggregate': ko.mapping.toJS(facet.properties.facets_form.aggregate)
+    });
+    pivot.aggregate.metrics = ko.computed(function() {
+      var _field = self.getTemplateField(pivot.field(), self.template.fieldsAttributes());
+      return self._get_field_operations(_field, facet);
     });
 
     facet.properties.facets_form.field(null);
@@ -969,6 +1008,41 @@ var Collection = function (vm, collection) {
       }
     });
     return _facets;
+  }
+
+  self.dropOnWidget = function (id) {
+    if (vm.isEditing() && vm.lastDraggedMeta() && vm.lastDraggedMeta().type === 'solr') {
+      var facet = self.getFacetById(id);
+      if (facet && facet.properties && facet.properties.facets_form) {
+        facet.properties.facets_form.field(vm.lastDraggedMeta().field());
+      }
+      if (self.supportAnalytics()) {
+        self.addPivotFacetValue2(facet);
+      }
+      else {
+        self.addPivotFacetValue(facet);
+      }
+      vm.lastDraggedMeta(null);
+    }
+  }
+
+  self.dropOnEmpty = function (column, atBeginning) {
+    if (vm.isEditing() && vm.lastDraggedMeta() && vm.lastDraggedMeta().type === 'solr') {
+      var row = column.addEmptyRow(atBeginning);
+      if (self.supportAnalytics()) {
+        row.addWidget(vm.draggableBucket());
+      }
+      else {
+        row.addWidget(vm.draggableBar());
+      }
+      var widget = row.widgets()[0];
+      self.addFacet({
+        'name': vm.lastDraggedMeta().field(),
+        'widget_id': widget.id(),
+        'widgetType': widget.widgetType()
+      });
+      vm.lastDraggedMeta(null);
+    }
   }
 
   self.template.fields = ko.computed(function () {
@@ -1062,17 +1136,6 @@ var Collection = function (vm, collection) {
     return hasData;
   });
 
-  self.getTemplateField = function (name, fields) {
-    var _field = null;
-    $.each(fields, function (index, field) {
-      if (field && field.name() == name) {
-        _field = field;
-        return false;
-      }
-    });
-    return _field;
-  };
-
   self.template.fieldsModalFilter = ko.observable(""); // For UI
   self.template.fieldsModalType = ko.observable(""); // For UI
   self.template.fieldsAttributesFilter = ko.observable(""); // For UI
@@ -1144,6 +1207,7 @@ var Collection = function (vm, collection) {
         $.each(data.collection.collection.fields, function(index, field) {
           self.fields.push(ko.mapping.fromJS(field));
         });
+        huePubSub.publish('set.active.dashboard.collection', self);
 
         self.syncDynamicFields();
       }
@@ -1375,6 +1439,8 @@ var Collection = function (vm, collection) {
 
     vm.search();
   };
+
+  huePubSub.publish('set.active.dashboard.collection', self);
 };
 
 var NewTemplate = function (vm, initial) {
@@ -1480,9 +1546,9 @@ var QueryResult = function (vm, initial) { // Similar to to Notebook Snippet
 };
 
 
-var DATE_TYPES = ['date', 'tdate', 'timestamp'];
-var NUMBER_TYPES = ['int', 'tint', 'long', 'tlong', 'float', 'tfloat', 'double', 'tdouble', 'currency'];
-var FLOAT_TYPES = ['float', 'tfloat', 'double', 'tdouble'];
+var DATE_TYPES = ['date', 'tdate', 'timestamp', 'pdate'];
+var NUMBER_TYPES = ['int', 'tint', 'pint', 'long', 'tlong', 'tlong', 'float', 'tfloat', 'pfloat', 'double', 'tdouble', 'pdouble', 'currency'];
+var FLOAT_TYPES = ['float', 'tfloat', 'pfloat', 'double', 'tdouble', 'pdouble'];
 var GEO_TYPES = ['SpatialRecursivePrefixTreeFieldType'];
 
 var RANGE_SELECTABLE_WIDGETS = ['histogram-widget', 'bar-widget', 'line-widget'];
@@ -1617,7 +1683,9 @@ var SearchViewModel = function (collection_json, query_json, initial_json) {
     self.draggableTree2 = ko.observable(bareWidgetBuilder("Tree", "tree2-widget"));
     self.draggableTextFacet = ko.observable(bareWidgetBuilder("Text Facet", "text-facet-widget"));
 
-
+    self.hasAvailableFields = ko.pureComputed(function () {
+      return self.collection.availableFacetFields().length > 0;
+    });
     self.availableDateFields = ko.computed(function () {
       return $.grep(self.collection.availableFacetFields(), function (field) {
         return DATE_TYPES.indexOf(field.type()) != -1 && field.name() != '_version_';
@@ -1676,8 +1744,12 @@ var SearchViewModel = function (collection_json, query_json, initial_json) {
     });
     self.availableDraggableMap = ko.computed(function () {
       return self.availableStringFields().length > 0;
-    })
+    });
 
+    self.lastDraggedMeta = ko.observable();
+    huePubSub.subscribe('draggable.text.meta', function (meta) {
+      self.lastDraggedMeta(meta);
+    }, 'dashboard');
 
     self.init = function (callback) {
       self.isEditing(self.columns().length == 0);
@@ -1842,7 +1914,9 @@ var SearchViewModel = function (collection_json, query_json, initial_json) {
       }
       else if (location.getParameter("collection") != "") {
         var firstQuery = self.query.qs()[0].q();
-        hueUtils.changeURL("?collection=" + location.getParameter("collection") + (firstQuery ? "&q=" + firstQuery : ""));
+        if (firstQuery) {
+          hueUtils.changeURL("?collection=" + location.getParameter("collection") + "&q=" + firstQuery);
+        }
       }
 
       // Multi queries
@@ -2262,12 +2336,14 @@ var SearchViewModel = function (collection_json, query_json, initial_json) {
         layout: ko.mapping.toJSON(self.columns)
       }, function (data) {
         if (data.status == 0) {
+          if (! self.collection.id()) {
+            huePubSub.publish('assist.document.refresh');
+          }
           self.collection.id(data.id);
           $(document).trigger("info", data.message);
           if (window.location.search.indexOf("collection") == -1) {
             hueUtils.changeURL((IS_HUE_4 ? '/hue' : '') + '/dashboard/?collection=' + data.id);
           }
-          huePubSub.publish('assist.document.refresh');
         }
         else {
           $(document).trigger("error", data.message);

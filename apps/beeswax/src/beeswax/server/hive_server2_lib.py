@@ -43,8 +43,7 @@ from beeswax import hive_site
 from beeswax.hive_site import hiveserver2_use_ssl
 from beeswax.conf import CONFIG_WHITELIST, LIST_PARTITIONS_LIMIT
 from beeswax.models import Session, HiveServerQueryHandle, HiveServerQueryHistory, QueryHistory
-from beeswax.server.dbms import Table, NoSuchObjectException, DataTable,\
-                                QueryServerException
+from beeswax.server.dbms import Table, DataTable, QueryServerException
 
 
 LOG = logging.getLogger(__name__)
@@ -61,11 +60,11 @@ class HiveServerTable(Table):
   def __init__(self, table_results, table_schema, desc_results, desc_schema):
     if beeswax_conf.THRIFT_VERSION.get() >= 7:
       if not table_results.columns:
-        raise NoSuchObjectException()
+        raise QueryServerException('No table columns')
       self.table = table_results.columns
     else: # Deprecated. To remove in Hue 4.
       if not table_results.rows:
-        raise NoSuchObjectException()
+        raise QueryServerException('No table rows')
       self.table = table_results.rows and table_results.rows[0] or ''
 
     self.table_schema = table_schema
@@ -1013,7 +1012,7 @@ class HiveServerClient:
           partitions_formatted.append(['/'.join(['%s=%s' % (str(part[0]), str(part[1])) for part in zipped_parts if all(part)])])
 
         partitions = [PartitionValueCompatible(partition, table) for partition in partitions_formatted]
-      except Exception, e:
+      except Exception:
         raise ValueError(_('Failed to determine partition keys for Impala table: `%s`.`%s`') % (database, table_name))
     else:
       partitions = [PartitionValueCompatible(partition, table) for partition in partition_table.rows()]

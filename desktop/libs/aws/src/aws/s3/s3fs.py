@@ -37,7 +37,7 @@ from aws.s3.s3stat import S3Stat
 
 
 DEFAULT_READ_SIZE = 1024 * 1024  # 1MB
-
+PERMISSION_ACTION_S3 = "s3_access"
 BUCKET_NAME_PATTERN = re.compile("^((?:(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9_\-]*[a-zA-Z0-9])\.)*(?:[A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9_\-]*[A-Za-z0-9]))$")
 
 LOG = logging.getLogger(__name__)
@@ -76,6 +76,7 @@ class S3FileSystem(object):
   def __init__(self, s3_connection):
     self._s3_connection = s3_connection
     self._bucket_cache = None
+    self._filebrowser_action = PERMISSION_ACTION_S3
 
   def _init_bucket_cache(self):
     if self._bucket_cache is None:
@@ -223,6 +224,9 @@ class S3FileSystem(object):
   def normpath(path):
     return normpath(path)
 
+  def netnormpath(self, path):
+    return normpath(path)
+
   @staticmethod
   def parent_path(path):
     parent_dir = S3FileSystem._append_separator(path)
@@ -338,6 +342,10 @@ class S3FileSystem(object):
 
   def restore(self, *args, **kwargs):
     raise NotImplementedError(_('Moving to trash is not implemented for S3'))
+
+  def filebrowser_action(self):
+    return self._filebrowser_action
+
 
   @translate_s3_error
   @auth_error_handler

@@ -21,6 +21,7 @@ from desktop import conf
 from desktop.views import commonheader, commonfooter, _ko, commonshare
 %>
 
+<%namespace name="charting" file="/charting.mako" />
 <%namespace name="dashboard" file="common_dashboard.mako" />
 
 <%def name="page_structure(is_mobile=False, is_embeddable=False)">
@@ -52,7 +53,7 @@ from desktop.views import commonheader, commonfooter, _ko, commonshare
 <div class="search-bar" data-bind="visible: ! $root.isPlayerMode()">
   <div class="pull-left">
     <div class="app-header">
-      <a href="#" data-bind="hueLink: '${ url('search:new_search') }'">
+      <a href="#" data-bind="hueLink: '${ url('dashboard:new_search') }'">
         <!-- ko template: { name: 'app-icon-template', data: { icon: 'dashboard' } } --><!-- /ko --> ${ _('Dashboard') }
         <!-- ko component: { name: 'hue-favorite-app', params: { hue4: IS_HUE_4, app: 'dashboard' }} --><!-- /ko -->
       </a>
@@ -68,42 +69,58 @@ from desktop.views import commonheader, commonfooter, _ko, commonshare
       <i class="fa fa-save"></i>
     </a>
     % endif
-    <a class="share-link btn" rel="tooltip" data-placement="bottom" data-bind="click: prepareShareModal,
-      attr: {'data-original-title': '${ _ko("Share") } ' + name},
-      css: {'isShared': isShared(), 'btn': true},
-      visible: isSaved()">
-      <i class="fa fa-users"></i>
-    </a>
-    %if not is_embeddable:
-    <a class="btn pointer" title="${ _('Player mode') }" rel="tooltip" data-placement="bottom" data-bind="click: function(){ hueUtils.goFullScreen(); $root.isEditing(false); $root.isPlayerMode(true); }">
-      <i class="fa fa-expand"></i>
-    </a>
-    %endif
-    &nbsp;&nbsp;&nbsp;
-    <a class="btn pointer" title="${ _('General Settings') }" rel="tooltip" data-placement="bottom" data-toggle="modal" data-target="#settingsDemiModal"
-        data-bind="css: {'btn': true}, visible: columns().length != 0">
-      <i class="fa fa-cog"></i>
-    </a>
-    <a class="btn pointer" title="${ _('Query Definitions') }" rel="tooltip" data-placement="bottom" data-toggle="modal" data-target="#qdefinitionsDemiModal"
-        data-bind="css: {'btn': true}, visible: columns().length != 0">
-      <i class="fa fa-bookmark-o"></i>
-    </a>
 
-    <span data-bind="visible: columns().length != 0">&nbsp;&nbsp;&nbsp;</span>
+    <div class="dropdown pull-right margin-left-10">
+      <a class="btn" data-toggle="dropdown" href="javascript: void(0)">
+        <i class="fa fa-fw fa-ellipsis-v"></i>
+      </a>
+      <ul class="dropdown-menu">
+        <li data-bind="visible: isSaved()">
+          <a class="share-link" data-bind="click: prepareShareModal, css: {'isShared': isShared()}">
+            <i class="fa fa-fw fa-users"></i> ${ _('Share') }
+          </a>
+        </li>
+        %if not is_embeddable:
+          <li>
+            <a class="pointer" data-bind="click: function(){ hueUtils.goFullScreen(); $root.isEditing(false); $root.isPlayerMode(true); }">
+              <i class="fa fa-fw fa-expand"></i> ${ _('Player mode') }
+            </a>
+          </li>
+        %endif
 
-    <a class="btn" href="javascript:void(0)" title="${ _('New') }" rel="tooltip" data-placement="bottom" data-bind="css: {'btn': true}, click: newSearch">
-      <i class="fa fa-file-o"></i>
-    </a>
-    <!-- ko if: IS_HUE_4 -->
-    <a class="btn" href="/home/?type=search-dashboard" title="${ _('Dashboards') }" rel="tooltip" data-placement="bottom" data-bind="css: {'btn': true}">
-      <svg class="hi"><use xlink:href="#hi-documents"></use></svg>
-    </a>
-    <!-- /ko -->
-    <!-- ko ifnot: IS_HUE_4 -->
-    <a class="btn" href="${ url('dashboard:admin_collections') }" title="${ _('Dashboards') }" rel="tooltip" data-placement="bottom" data-bind="css: {'btn': true}">
-      <svg class="hi"><use xlink:href="#hi-documents"></use></svg>
-    </a>
-    <!-- /ko -->
+        <li data-bind="visible: columns().length != 0">
+          <a class="pointer" data-toggle="modal" data-target="#settingsDemiModal">
+            <i class="fa fa-fw fa-cog"></i> ${ _('Settings') }
+          </a>
+        </li>
+        <li data-bind="visible: columns().length != 0">
+          <a class="pointer" data-toggle="modal" data-target="#qdefinitionsDemiModal">
+            <i class="fa fa-fw fa-bookmark-o"></i> ${ _('Saved Queries') }
+          </a>
+        </li>
+        <li data-bind="visible: columns().length != 0" class="divider"></li>
+        <li>
+          <a href="javascript:void(0)" data-bind="click: newSearch">
+            <i class="fa fa-fw fa-file-o"></i> ${ _('New') }
+          </a>
+        </li>
+        <!-- ko if: IS_HUE_4 -->
+        <li>
+          <a href="/home/?type=search-dashboard">
+            <svg class="hi hi-fw" style="font-size:16px;"><use xlink:href="#hi-documents"></use></svg> ${ _('Dashboards') }
+          </a>
+        </li>
+        <!-- /ko -->
+        <!-- ko ifnot: IS_HUE_4 -->
+        <li>
+          <a href="${ url('dashboard:admin_collections') }">
+            <svg class="hi hi-fw" style="font-size:16px;"><use xlink:href="#hi-documents"></use></svg> ${ _('Dashboards') }
+          </a>
+        </li>
+        <!-- /ko -->
+      </ul>
+    </div>
+
   </div>
 
   <form class="form-search" data-bind="visible: $root.isEditing() && columns().length == 0">
@@ -149,14 +166,14 @@ from desktop.views import commonheader, commonfooter, _ko, commonshare
       </div>
 
       <span data-bind="foreach: query.qs">
-        <input data-bind="clearable: q, valueUpdate:'afterkeydown', typeahead: { target: q, nonBindableSource: queryTypeahead, multipleValues: true, multipleValuesSeparator: ':', extraKeywords: 'AND OR TO', completeSolrRanges: true }, css:{'input-almost-xxlarge': $root.query.qs().length == 1, 'input-medium': $root.query.qs().length < 3, 'input-small': $root.query.qs().length >= 3, 'flat-left': $index() === 0}" maxlength="4096" type="text" class="search-query">
+        <input data-bind="clearable: q, valueUpdate:'afterkeydown', autogrowInput: { minWidth: $root.query.qs().length > 1 ? 90 : 206, maxWidth: 270, comfortZone: 15 }, typeahead: { target: q, nonBindableSource: queryTypeahead, multipleValues: true, multipleValuesSeparator: ':', extraKeywords: 'AND OR TO', completeSolrRanges: true }, css:{'input-small': $root.query.qs().length > 1, 'flat-left': $index() === 0}" maxlength="4096" type="text" class="search-query">
         <!-- ko if: $index() >= 1 -->
         <a class="btn flat-left" href="javascript:void(0)" data-bind="click: $root.query.removeQ"><i class="fa fa-minus"></i></a>
         <!-- /ko -->
       </span>
       <a class="btn" href="javascript:void(0)" data-bind="click: $root.query.addQ, css: { 'flat-left': $root.query.qs().length === 1}, style: { 'margin-left': $root.query.qs().length > 1 ? '10px' : '0' }"><i class="fa fa-plus"></i></a>
 
-      <button type="submit" id="search-btn" class="btn btn-inverse" style="margin-left:10px; margin-right:10px">
+      <button type="submit" id="search-btn" class="btn btn-primary disable-feedback" style="margin-left:10px; margin-right:10px">
         <i class="fa fa-search" data-bind="visible: ! isRetrievingResults()"></i>
         <i class="fa fa-spinner fa-spin" data-bind="visible: isRetrievingResults()"></i>
         <!-- ko if: $root.collection.async() -->
@@ -223,12 +240,12 @@ from desktop.views import commonheader, commonfooter, _ko, commonshare
     </div>
 
     <div data-bind="visible: $root.collection.supportAnalytics,
-                    css: { 'draggable-widget': true, 'disabled': !availableDraggableNumbers() },
-                    draggable: {data: draggableCounter(), isEnabled: availableDraggableNumbers,
+                    css: { 'draggable-widget': true, 'disabled': !hasAvailableFields() },
+                    draggable: {data: draggableCounter(), isEnabled: hasAvailableFields,
                     options: {'start': function(event, ui){lastWindowScrollPosition = $(window).scrollTop();$('.card-body').slideUp('fast');},
                               'stop': function(event, ui){$('.card-body').slideDown('fast', function(){$(window).scrollTop(lastWindowScrollPosition)});}}}"
          title="${_('Counter')}" rel="tooltip" data-placement="top">
-         <a data-bind="style: { cursor: $root.availableDraggableNumbers() ? 'move' : 'default' }">
+         <a data-bind="style: { cursor: $root.hasAvailableFields() ? 'move' : 'default' }">
                        <i class="fa fa-superscript" style="font-size: 110%"></i>
          </a>
     </div>
@@ -554,6 +571,7 @@ ${ dashboard.layout_skeleton(suffix='search') }
     </div>
     <!-- /ko -->
 
+    <!-- ko if: widgetType() != 'hit-widget' -->
     <div class="facet-field-cnt">
       <span class="facet-field-label facet-field-label-fixed-width">${ _('Sorting') }</span>
       <a href="javascript: void(0)" title="${ _('Toggle sort order') }" data-bind="click: $root.collection.toggleSortFacet2">
@@ -562,6 +580,7 @@ ${ dashboard.layout_skeleton(suffix='search') }
         <span data-bind="visible: properties.sort() == 'asc'">${_('ascending')}</span>
       </a>
     </div>
+    <!-- /ko -->
 
 
     <!-- ko if: type() == 'range' || type() == 'range-up' || (type() == 'nested' && typeof properties.min != "undefined") -->
@@ -694,7 +713,7 @@ ${ dashboard.layout_skeleton(suffix='search') }
   </div>
   <!-- /ko -->
 
-  <div class="filter-box" data-bind="visible: $root.isEditing() && properties.facets().length < 15" style="opacity: 0.7">
+  <div class="filter-box" data-bind="visible: $root.isEditing() && properties.facets().length < 15 && widgetType() != 'hit-widget'" style="opacity: 0.7">
     <div class="title" style="border: 1px dashed #d8d8d8; border-bottom: none">
       <a data-bind="visible: ko.toJSON(properties.facets_form.field), click: $root.collection.addPivotFacetValue2" class="pull-right" href="javascript:void(0)">
         <i class="fa fa-fw fa-plus"></i> ${ _('Add') }
@@ -1407,7 +1426,7 @@ ${ dashboard.layout_skeleton(suffix='search') }
 
     <div class="grid-left-bar">
       <div>
-        <div style="margin-top:3px">
+        <div style="margin-top: 3px">
           <a class="grid-side-btn active" href="javascript: void(0)"
              data-bind="click: function(){ template.showChart(false); template.showGrid(true); }, css: {'active': template.showGrid() }" title="${_('Grid')}">
             <i class="fa fa-th fa-fw"></i>
@@ -1493,24 +1512,28 @@ ${ dashboard.layout_skeleton(suffix='search') }
           <input type="hidden" name="query" data-bind="value: ko.mapping.toJSON($root.query)"/>
           <input type="hidden" name="download">
           <input type="hidden" name="type" value="">
+          ## Similar to isGridLayout
+          <!-- ko if: widgetType() != 'resultset-widget' -->
+            <input type="hidden" name="facet" data-bind="value: ko.mapping.toJSON($data)">
+          <!-- /ko -->
           <div class="dropdown">
             <a class="grid-side-btn dropdown-toggle" style="padding-left:7px" data-toggle="dropdown">
               <i class="fa fa-download fa-fw"></i>
             </a>
             <ul class="dropdown-menu">
               <li>
-                <a class="download" href="javascript:void(0)" data-bind="click: function(widget, event){ var $f = $(event.currentTarget).parents('form'); $f.find('[name=\'type\']').val('csv'); $f.submit()}" title="${ _('Download first rows as JSON') }">
-                  <i class="hfo hfo-file-csv"></i> CSV
+                <a class="download" href="javascript:void(0)" data-bind="click: function(widget, event){ var $f = $(event.currentTarget).parents('form'); $f.find('[name=\'type\']').val('csv'); $f.submit()}" title="${ _('Download first rows as CSV') }">
+                  <i class="hfo hfo-file-csv"></i> ${ _("CSV") }
                 </a>
               </li>
               <li>
                 <a class="download" href="javascript:void(0)" data-bind="click: function(widget, event){ var $f = $(event.currentTarget).parents('form'); $f.find('[name=\'type\']').val('xls'); $f.submit()}" title="${ _('Download first rows as XLS') }">
-                  <i class="hfo hfo-file-xls"></i> Excel
+                  <i class="hfo hfo-file-xls"></i> ${ _("Excel") }
                 </a>
               </li>
               <li>
                 <a class="download" href="javascript:void(0)" data-bind="click: function(widget, event){ var $f = $(event.currentTarget).parents('form'); $f.find('[name=\'type\']').val('json'); $f.submit()}" title="${ _('Download first rows as JSON') }">
-                  <i class="hfo hfo-file-json"></i> JSON
+                  <i class="hfo hfo-file-json"></i> ${ _("JSON") }
                 </a>
               </li>
               ##<li>
@@ -2088,8 +2111,12 @@ ${ dashboard.layout_skeleton(suffix='search') }
 
 <script type="text/html" id="metric-form">
   <div data-bind="visible: $root.isEditing" style="margin-bottom: 20px">
-    <!-- ko if: $data.function() != 'field' -->
-      <select data-bind="options: HIT_OPTIONS, optionsText: 'label', optionsValue: 'value', value: $data.function" class="input-medium"></select>
+    <!-- ko if: $data.function() != 'field' && $parent.properties -->
+      <select data-bind="options: $parent.properties.facets_form.metrics, optionsText: 'label', optionsValue: 'value', value: $data.function" class="input-medium"></select>
+    <!-- /ko -->
+
+    <!-- ko if: $data.function() != 'field' && $data.metrics -->
+      <select data-bind="options: $data.metrics, optionsText: 'label', optionsValue: 'value', value: $data.function" class="input-medium"></select>
     <!-- /ko -->
 
     <!-- ko if: $data.function() == 'field' -->
@@ -2110,7 +2137,7 @@ ${ dashboard.layout_skeleton(suffix='search') }
       <i class="fa fa-plus" title="${ _('Add') }"></i>
     <!-- /ko -->
 
-    <a href="javascript: void(0)" data-bind="click: function() { $parent.ops.pop($data); }">
+    <a href="javascript: void(0)" data-bind="visible: typeof $parent.ops != 'undefined', click: function() { $parent.ops.pop($data); }">
       <i class="fa fa-minus" title="${ _('Delete') }"></i>
     </a>
 
@@ -2756,6 +2783,7 @@ ${ dashboard.layout_skeleton(suffix='search') }
 <link rel="stylesheet" href="${ static('desktop/ext/chosen/chosen.min.css') }">
 <link rel="stylesheet" href="${ static('desktop/ext/select2/select2.css') }">
 <link rel="stylesheet" href="${ static('desktop/ext/css/selectize.css') }">
+<link rel="stylesheet" href="${ static('desktop/ext/css/jquery.gridster.min.css') }">
 
 <script src="${ static('desktop/js/hue.json.js') }" type="text/javascript" charset="utf-8"></script>
 
@@ -2777,8 +2805,10 @@ ${ dashboard.import_layout(True) }
 <script src="${ static('desktop/js/ko.selectize.js') }"></script>
 <script src="${ static('dashboard/js/search.ko.js') }" type="text/javascript" charset="utf-8"></script>
 
+<script src="${ static('desktop/ext/js/jquery/plugins/jquery.gridster.with-extras.min.js') }"></script>
+
 ${ dashboard.import_bindings() }
-${ dashboard.import_charts() }
+${ charting.import_charts() }
 
 <style type="text/css">
 % if conf.CUSTOM.BANNER_TOP_HTML.get():
@@ -2806,20 +2836,42 @@ var searchViewModel;
 
 moment.suppressDeprecationWarnings = true;
 
-var HIT_OPTIONS = [
-  { value: "count", label: "${ _('Count') }" },
-  { value: "unique", label: "${ _('Unique Count') }" },
-  { value: "avg", label: "${ _('Average') }" },
-  { value: "sum", label: "${ _('Sum') }" },
-  { value: "min", label: "${ _('Min') }" },
-  { value: "max", label: "${ _('Max') }" },
-  { value: "median", label: "${ _('Median') }" },
-  { value: "percentile", label: "${ _('Percentiles') }" },
-  { value: "mul", label: "${ _('Multiply') }" },
-  { value: "add", label: "${ _('Add') }" },
-  { value: "sub", label: "${ _('Substract') }" },
-  { value: "ms", label: "${ _('Substract dates') }" },
+var NUMERIC_HIT_OPTIONS = [
+    // No count
+    { value: "unique", label: "${ _('Unique Count') }" },
+    { value: "avg", label: "${ _('Average') }" },
+    { value: "sum", label: "${ _('Sum') }" },
+    { value: "min", label: "${ _('Min') }" },
+    { value: "max", label: "${ _('Max') }" },
+    { value: "median", label: "${ _('Median') }" },
+    { value: "percentile", label: "${ _('Percentiles') }" },
+    { value: "mul", label: "${ _('Multiply') }" },
+    { value: "add", label: "${ _('Add') }" },
+    { value: "sub", label: "${ _('Substract') }" },
+    { value: "stddev", label: "${ _('Stddev') }" },
+    { value: "variance", label: "${ _('Variance') }" }
 ];
+var DATETIME_HIT_OPTIONS = [
+    { value: "unique", label: "${ _('Unique Count') }" },
+    { value: "ms", label: "${ _('Substract dates') }" }
+];
+var ALPHA_HIT_COUNTER_OPTIONS = [
+    { value: "unique", label: "${ _('Unique Count') }" },
+    { value: "min", label: "${ _('Min') }" },
+    { value: "max", label: "${ _('Max') }" }
+];
+var ALPHA_HIT_OPTIONS = [
+    { value: "count", label: "Count" },
+    { value: "unique", label: "${ _('Unique Count') }" },
+    { value: "min", label: "${ _('Min') }" },
+    { value: "max", label: "${ _('Max') }" }
+];
+var HIT_OPTIONS = [
+    { value: "count", label: "${ _('Count') }" }
+  ].concat(NUMERIC_HIT_OPTIONS)\
+  .concat([{ value: "ms", label: "${ _('Substract dates') }" }])
+;
+
 
 function prepareShareModal () {
   shareViewModel.setDocUuid(this.collection.uuid());
@@ -3471,7 +3523,7 @@ function newSearch() {
 }
 
 function loadSearch(collection, query, initial) {
-  
+
   searchViewModel = new SearchViewModel(collection, query, initial);
 
   ko.applyBindings(searchViewModel, $('#searchComponents')[0]);

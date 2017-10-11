@@ -557,6 +557,7 @@ qq.FileUploader = function(o){
     this._button = this._createUploadButton(this._find(this._element, 'button'));
 
     this._bindCancelEvent();
+    this._bindCancelAllEvent();
     this._setupDragDrop();
 };
 
@@ -696,6 +697,15 @@ qq.extend(qq.FileUploader.prototype, {
                 qq.remove(item);
             }
         });
+    },
+    _bindCancelAllEvent: function() {
+      var self = this,
+        list = this._listElement;
+      $('#uploadFileModal').on('hidden', function () {
+        for (var i = 0, l = list && list.childNodes.length; i < l; i++) {
+          self._handler.cancel(list.childNodes[i].qqFileId);
+        }
+      });
     }
 });
 
@@ -1206,11 +1216,11 @@ qq.extend(qq.UploadHandlerXhr.prototype, {
     getName: function(id){
         var file = this._files[id];
         // fix missing name in Safari 4
-        return file.fileName != null ? file.fileName : file.name;
+        return file && (file.fileName || file.name);
     },
     getSize: function(id){
         var file = this._files[id];
-        return file.fileSize != null ? file.fileSize : file.size;
+        return file && (file.fileSize || file.size);
     },
     /**
      * Returns uploaded bytes for file identified by id

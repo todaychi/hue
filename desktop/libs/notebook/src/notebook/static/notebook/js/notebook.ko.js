@@ -226,31 +226,25 @@ var EditorViewModel = (function() {
       properties['app_jar'] = '';
       properties['class'] = '';
       properties['arguments'] = [];
-    }
-    else if (snippetType == 'distcp') {
+    } else if (snippetType == 'distcp') {
       properties['source_path'] = '';
       properties['destination_path'] = '';
-    }
-    else if (snippetType == 'shell') {
+    } else if (snippetType == 'shell') {
       properties['command_path'] = '';
       properties['arguments'] = [];
       properties['env_var'] = [];
       properties['capture_output'] = true;
-    }
-    else if (snippetType == 'py') {
+    } else if (snippetType == 'py') {
       properties['py_file'] = '';
       properties['arguments'] = [];
-    }
-    else if (snippetType == 'hive') {
+    } else if (snippetType == 'hive') {
       properties['settings'] = [];
       properties['files'] = [];
       properties['functions'] = [];
       properties['arguments'] = [];
-    }
-    else if (snippetType == 'impala') {
+    } else if (snippetType == 'impala') {
       properties['settings'] = [];
-    }
-    else if (snippetType == 'pig') {
+    } else if (snippetType == 'pig') {
       properties['parameters'] = [];
       properties['hadoopProperties'] = [];
       properties['resources'] = [];
@@ -305,13 +299,6 @@ var EditorViewModel = (function() {
       }
     });
 
-    // TODO: It should only publish if this belongs to the currently active app in Hue 4
-    huePubSub.subscribe('get.active.snippet.type', function () {
-      if (self.inFocus() || notebook.snippets().length === 1) {
-        huePubSub.publish('set.active.snippet.type', self.type());
-      }
-    }, vm.huePubSubId);
-
     self.getAceMode = function() {
       return vm.getSnippetViewSettings(self.type()).aceMode;
     };
@@ -331,15 +318,20 @@ var EditorViewModel = (function() {
     };
 
     self.database = ko.observable();
+    var previousDatabase = null;
     self.database.subscribe(function (newValue) {
       if (newValue !== null) {
         self.getApiHelper().setInTotalStorage('editor', 'last.selected.database', newValue);
+        if (previousDatabase !== null && previousDatabase !== newValue) {
+          huePubSub.publish('editor.refresh.statement.locations', self);
+        }
+        previousDatabase = newValue;
       }
     });
     self.database(typeof snippet.database != "undefined" && snippet.database != null ? snippet.database : null);
     self.availableDatabases = ko.observableArray();
 
-    var updateDatabases = function () {
+    self.updateDatabases = function () {
       if (self.isSqlDialect()) {
         self.getApiHelper().loadDatabases({
           sourceType: self.type(),
@@ -351,39 +343,9 @@ var EditorViewModel = (function() {
       }
     };
 
-    huePubSub.subscribe('assist.db.refresh', function (options) {
-      if (['hive', 'impala'].indexOf(self.type()) !== -1) {
-        updateDatabases();
-      }
-    }, vm.huePubSubId);
-
-    huePubSub.subscribe('save.snippet.to.file', function() {
-      var data = {
-        path: self.statementPath(),
-        contents: self.statement()
-      };
-      var options = {
-        successCallback: function(result) {
-          if (result && result.exists) {
-            $(document).trigger("info", result.path + ' saved successfully.');
-          } else {
-            self._ajaxError(result);
-          }
-        }
-      };
-      var apiHelper = ApiHelper.getInstance();
-      apiHelper.saveSnippetToFile(data, options);
-    }, vm.huePubSubId);
-
     // History is currently in Notebook, same with saved queries by snippets, might be better in assist
     self.currentQueryTab = ko.observable(typeof snippet.currentQueryTab != "undefined" && snippet.currentQueryTab != null ? snippet.currentQueryTab : 'queryHistory');
     self.pinnedContextTabs = ko.observableArray(typeof snippet.pinnedContextTabs != "undefined" && snippet.pinnedContextTabs != null ? snippet.pinnedContextTabs : []);
-
-    huePubSub.subscribe('sql.context.pin', function (contextData) {
-      contextData.tabId = 'context' + self.pinnedContextTabs().length;
-      self.pinnedContextTabs.push(contextData);
-      self.currentQueryTab(contextData.tabId);
-    }, vm.huePubSubId);
 
     self.removeContextTab = function (context) {
       if (context.tabId === self.currentQueryTab()) {
@@ -458,8 +420,8 @@ var EditorViewModel = (function() {
       }
     };
 
-    self.isSqlDialect.subscribe(updateDatabases);
-    updateDatabases();
+    self.isSqlDialect.subscribe(self.updateDatabases);
+    self.updateDatabases();
 
     huePubSub.subscribeOnce('assist.source.set', function (source) {
       if (source !== self.type()) {
@@ -469,17 +431,19 @@ var EditorViewModel = (function() {
 
     huePubSub.publish('assist.get.source');
 
-    var handleAssistSelection = function (databaseDef) {
-      if (databaseDef.source === self.type() && self.database() !== databaseDef.name) {
+    var ignoreNextAssistDatabaseUpdate = false;
+    self.handleAssistSelection = function (databaseDef) {
+      if (ignoreNextAssistDatabaseUpdate) {
+        ignoreNextAssistDatabaseUpdate = false;
+      } else if (databaseDef.source === self.type() && self.database() !== databaseDef.name) {
         self.database(databaseDef.name);
       }
     };
 
-    huePubSub.subscribe("assist.database.set", handleAssistSelection, vm.huePubSubId);
-    huePubSub.subscribe("assist.database.selected", handleAssistSelection, vm.huePubSubId);
-
-    if (! self.database()) {
-      huePubSub.publish("assist.get.database", self.type());
+    if (!self.database()) {
+      huePubSub.publish("assist.get.database.callback", { source: self.type(), callback: function (databaseDef) {
+        self.handleAssistSelection(databaseDef);
+      }});
     }
 
     self.statementType = ko.observable(typeof snippet.statementType != "undefined" && snippet.statementType != null ? snippet.statementType : 'text');
@@ -583,7 +547,9 @@ var EditorViewModel = (function() {
     });
     if (snippet.variables) {
       snippet.variables.forEach(function (variable) {
-        variable.defaultValue = variable.defaultValue || '';
+        variable.meta = (typeof variable.defaultValue === "object" && variable.defaultValue) || {type: "text", placeholder: ""};
+        variable.value = variable.value || "";
+        delete variable.defaultValue;
       });
     }
     self.variables = ko.mapping.fromJS(typeof snippet.variables != "undefined" && snippet.variables != null ? snippet.variables : []);
@@ -652,23 +618,54 @@ var EditorViewModel = (function() {
       return params;
     };
     self.variableNames = ko.computed(function () {
-      var match, matches = {};
+      var match, matches = {}, matchList;
       if (self.type() == 'pig') {
         matches = self.getPigParameters();
       } else {
-        var re = /(?:^|\W)\${(\w*\=?[\w\s]*)}/g;
-        while (match = re.exec(self.statement_raw())) {
-          if (match[1].indexOf('=') > -1) {
-              var splittedName = match[1].split('=');
-              matches[splittedName[0]] = matches[splittedName[0]] || splittedName[1];
+        var re = /(?:^|\W)\${(\w*)\=?([^{}]*)}/g;
+        var reComment = /(^\s*--.*)|(\/\*[\s\S]*?\*\/)/gm;
+        var reList = /(?!\s*$)\s*(?:(?:([^,|()\\]*)\(\s*([^,|()\\]*)\)(?:\\[\S\s][^,|()\\]*)?)|([^,|\\]*(?:\\[\S\s][^,|\\]*)*))\s*(?:,|\||$)/g
+        var statement = self.statement_raw();
+        var matchComment = reComment.exec(statement);
+        //if re is n & reComment is m
+        //finding variables is O(n+m)
+        while (match = re.exec(statement)) {
+          while (matchComment && match.index > matchComment.index + matchComment[0].length) { //comments before our match
+            matchComment = reComment.exec(statement);
+          }
+          var isWithinComment = matchComment && match.index >= matchComment.index;
+          if (isWithinComment) continue;
+
+          //If 1 match, text value
+          //If multiple matches, list value
+          var value = {type:"text"};
+          while (matchList = reList.exec(match[2])) {
+            var option = {text:matchList[2] || matchList[3], value:matchList[3] || matchList[1]};
+            option.text = option.text && option.text.trim();
+            option.value = option.value && option.value.trim();
+
+            if (value.placeholder || matchList[2]){
+              if (!value.options) {
+                value.options = [];
+                value.type = "select";
+              }
+              value.options.push(option);
             }
-            else {
-              matches[match[1]] = '';
-            }
+            if (!value.placeholder) value.placeholder = option.value;
+          }
+          var isPlaceholderInOptions = !value.options || value.options.some(function (current){
+            return current.value == value.placeholder;
+          });
+          if (!isPlaceholderInOptions) {
+            value.options.push({text: value.placeholder, value: value.placeholder});
+          }
+          matches[match[1]] = matches[match[1]] || value;
         }
       }
-      return Object.keys(matches).map(function (match) {
-        return { name: match, defaultValue: matches[match] };
+      return $.map(matches, function (match, key) {
+        var isMatchObject = typeof matches[key] === "object";
+        var meta = isMatchObject ? matches[key] : {type: "text", placeholder: matches[key]};
+        return {name: key, meta: meta};
       });
     });
     self.variableValues = {};
@@ -678,12 +675,12 @@ var EditorViewModel = (function() {
       var needsMore = diffLengthVariables < 0;
       var needsLess = diffLengthVariables > 0;
       self.variableValues = self.variables().reduce(function (variableValues, variable) {
-        variableValues[variable.name()] = variable.value();
+        variableValues[variable.name()] = {value:variable.value()};
         return variableValues;
       }, self.variableValues);
       if (needsMore) {
         for (var i = 0, length = Math.abs(diffLengthVariables); i < length; i++) {
-          self.variables.push(ko.mapping.fromJS({ 'name': '', 'value': '', 'defaultValue': '' }));
+          self.variables.push(ko.mapping.fromJS({ name: "", value: "", meta: {type: "text", placeholder: ""}}));
         }
       } else if (needsLess) {
         self.variables.splice(self.variables().length - diffLengthVariables, diffLengthVariables);
@@ -691,15 +688,23 @@ var EditorViewModel = (function() {
       newVal.forEach(function (item, index) {
         var variable = self.variables()[index];
         variable.name(item.name);
-        variable.defaultValue(item.defaultValue);
-        variable.value(self.variableValues[item.name] || variable.value() || "");
+        variable.value(self.variableValues[item.name] ? self.variableValues[item.name].value : (!needsMore && variable.value()) || "");
+        variable.meta = ko.mapping.fromJS(item.meta, {}, variable.meta);
       });
     });
     self.statement = ko.computed(function () {
       var statement = self.isSqlDialect() ? (self.selectedStatement() ? self.selectedStatement() : (self.positionStatement() !== null ? self.positionStatement().statement : self.statement_raw())) : self.statement_raw();
-      $.each(self.variables(), function (index, variable) {
-        statement = statement.replace(RegExp("([^\\\\])?\\$" + (self.hasCurlyBracketParameters() ? "{" : "") + variable.name() + "(=[^}]*)?" + (self.hasCurlyBracketParameters() ? "}" : ""), "g"), "$1" + (variable.value() || variable.defaultValue()));
-      });
+      var variables = self.variables().reduce(function (variables, variable) {
+        variables[variable.name()] = variable;
+        return variables;
+      }, {});
+      if (self.variables().length) {
+        var variablesString = self.variables().map(function(variable) { return variable.name(); }).join("|");
+        statement = statement.replace(RegExp("([^\\\\])?\\$" + (self.hasCurlyBracketParameters() ? "{(" : "(") + variablesString + ")(=[^}]*)?" + (self.hasCurlyBracketParameters() ? "}" : ""), "g"), function(match, p1, p2){
+          var variable = variables[p2];
+          return p1 + (variable && (variable.value() || (variable.meta.placeholder && variable.meta.placeholder())));
+        });
+      }
       return statement;
     });
 
@@ -726,6 +731,7 @@ var EditorViewModel = (function() {
           var db = match[1];
           huePubSub.publish('assist.invalidate.impala', { flush: false, database: db });
         }
+        ignoreNextAssistDatabaseUpdate = true;
         huePubSub.publish('assist.db.refresh', { sourceTypes: [self.type()] });
       });
     }, 0);
@@ -737,7 +743,7 @@ var EditorViewModel = (function() {
     self.showGrid.subscribe(function (val) {
       if (val) {
         self.showChart(false);
-        $(document).trigger("gridShown", self);
+        huePubSub.publish('editor.grid.shown', self);
       }
     });
 
@@ -790,7 +796,7 @@ var EditorViewModel = (function() {
         self.showGrid(false);
         self.isResultSettingsVisible(true);
         $(document).trigger("forceChartDraw", self);
-        $(document).trigger("chartShown", self);
+        huePubSub.publish('editor.chart.shown', self);
         prepopulateChart();
       }
     });
@@ -1049,6 +1055,12 @@ var EditorViewModel = (function() {
           return;
         }
 
+        // The syntaxError property is only set if the syntax checker is active and has found an
+        // error, see AceLocationHandler.
+        if (self.positionStatement() && self.positionStatement().syntaxError) {
+          return;
+        }
+
         self.getApiHelper().cancelActiveRequest(lastComplexityRequest);
 
         hueAnalytics.log('notebook', 'get_query_risk');
@@ -1185,9 +1197,15 @@ var EditorViewModel = (function() {
         (self.statementType() == 'document' && self.associatedDocumentUuid() && self.associatedDocumentUuid().length > 0);
     });
     self.lastExecuted = ko.observable(typeof snippet.lastExecuted != "undefined" && snippet.lastExecuted != null ? snippet.lastExecuted : 0);
+    self.lastAceSelectionRowOffset = ko.observable(snippet.lastAceSelectionRowOffset || 0);
 
     self.executingBlockingOperation = null; // A ExecuteStatement()
     self.showLongOperationWarning = ko.observable(false);
+    self.showLongOperationWarning.subscribe(function(newValue) {
+      if (newValue) {
+        hueAnalytics.convert('editor', 'showLongOperationWarning');
+      }
+    });
 
     var longOperationTimeout = -1;
 
@@ -1209,6 +1227,11 @@ var EditorViewModel = (function() {
       }
       if (self.isSqlDialect()) {
         huePubSub.publish('editor.refresh.statement.locations', self);
+      }
+
+      if (self.ace()) {
+        var selectionRange = self.ace().getSelectionRange();
+        self.lastAceSelectionRowOffset(Math.min(selectionRange.start.row, selectionRange.end.row));
       }
 
       self.previousChartOptions = vm._getPreviousChartOptions(self);
@@ -1283,9 +1306,6 @@ var EditorViewModel = (function() {
         if (data.status == 0) {
           self.result.handle(data.handle);
           self.result.hasResultset(data.handle.has_result_set);
-          if (vm.isOptimizerEnabled()) {
-            huePubSub.publish('editor.upload.query', data.history_id);
-          }
           if (data.handle.sync) {
             self.loadData(data.result, 100);
             self.status('available');
@@ -1294,6 +1314,9 @@ var EditorViewModel = (function() {
             if (! notebook.unloaded()) {
               self.checkStatus();
             }
+          }
+          if (vm.isOptimizerEnabled()) {
+            huePubSub.publish('editor.upload.query', data.history_id);
           }
         } else {
           self._ajaxError(data, self.execute);
@@ -1494,7 +1517,7 @@ var EditorViewModel = (function() {
 
     self.fetchResultData = function (rows, startOver) {
       if (! self.isFetchingData) {
-        if( self.status() == 'available') {
+        if (self.status() == 'available') {
           startLongOperationTimeout();
           self.isFetchingData = true;
           hueAnalytics.log('notebook', 'fetchResult/' + rows + '/' + startOver);
@@ -1630,12 +1653,12 @@ var EditorViewModel = (function() {
           if (vm.editorMode()) {
             self.getLogs();
           }
+          self.result.endTime(new Date());
 
           if (data.status === 0) {
             self.status(data.query_status.status);
 
             if (self.status() == 'running' || self.status() == 'starting' || self.status() == 'waiting') {
-              self.result.endTime(new Date());
               var delay = self.result.executionTime() > 45000 ? 5000 : 1000; // 5s if more than 45s
               if (! notebook.unloaded()) {
                 self.checkStatusTimeout = setTimeout(self.checkStatus, delay);
@@ -1649,12 +1672,11 @@ var EditorViewModel = (function() {
                   setTimeout(function () { // Delay until we get IMPALA-5555
                     self.fetchResultSize(10, _query_id);
                   }, 2000);
-                } else { // Is DDL
-
+                  self.checkDdlNotification(); // DDL CTAS with Impala
+                } else {
+                  // Is DDL
                   if (self.lastExecutedStatement()) {
-                    if (/CREATE|DROP|ALTER/i.test(self.lastExecutedStatement().firstToken)) {
-                      self.ddlNotification(Math.random());
-                    }
+                    self.checkDdlNotification();
                   } else {
                     self.ddlNotification(Math.random());
                   }
@@ -1666,6 +1688,14 @@ var EditorViewModel = (function() {
                   }
                 }
               }
+              if (notebook.isExecutingAll()) {
+                notebook.executingAllIndex(notebook.executingAllIndex() + 1);
+                if (notebook.executingAllIndex() < notebook.snippets().length) {
+                  notebook.snippets()[notebook.executingAllIndex()].execute();
+                } else {
+                  notebook.isExecutingAll(false);
+                }
+              }
               if (! self.result.handle().has_more_statements && vm.successUrl()) {
                 window.location.href = vm.successUrl(); // Not used anymore in Hue 4
               }
@@ -1674,8 +1704,10 @@ var EditorViewModel = (function() {
             }
           } else if (data.status === -3) {
             self.status('expired');
+            notebook.isExecutingAll(false);
           } else {
             self._ajaxError(data);
+            notebook.isExecutingAll(false);
           }
         }
       }).fail(function (xhr, textStatus, errorThrown) {
@@ -1683,8 +1715,15 @@ var EditorViewModel = (function() {
           $(document).trigger("error", xhr.responseText || textStatus);
         }
         self.status('failed');
+        notebook.isExecutingAll(false);
       });
     };
+
+    self.checkDdlNotification = function() {
+      if (self.lastExecutedStatement() && /CREATE|DROP|ALTER/i.test(self.lastExecutedStatement().firstToken)) {
+        self.ddlNotification(Math.random());
+      }
+    }
 
     self.isCanceling = ko.observable(false);
 
@@ -1704,6 +1743,7 @@ var EditorViewModel = (function() {
         self.statusForButtons('canceled');
         self.status('failed');
         self.isCanceling(false);
+        notebook.isExecutingAll(false);
       } else {
         self.statusForButtons('canceling');
         $.post("/notebook/api/cancel_statement", {
@@ -1713,6 +1753,7 @@ var EditorViewModel = (function() {
           self.statusForButtons('canceled');
           if (data.status == 0) {
             self.status('canceled');
+            notebook.isExecutingAll(false);
           } else {
             self._ajaxError(data);
           }
@@ -1722,6 +1763,7 @@ var EditorViewModel = (function() {
           }
           self.statusForButtons('canceled');
           self.status('failed');
+          notebook.isExecutingAll(false);
         }).always(function (){
           self.isCanceling(false);
         });
@@ -2027,6 +2069,15 @@ var EditorViewModel = (function() {
         }).length == self.snippets().length;
     });
 
+    self.isExecutingAll = ko.observable(!! notebook.isExecutingAll);
+    self.cancelExecutingAll = function() {
+      var index = self.executingAllIndex();
+      if (self.isExecutingAll() && self.snippets()[index]) {
+        self.snippets()[index].cancel();
+      }
+    };
+    self.executingAllIndex = ko.observable(notebook.executingAllIndex || 0);
+
     self.retryModalConfirm = null;
     self.retryModalCancel = null;
 
@@ -2228,7 +2279,7 @@ var EditorViewModel = (function() {
       };
     };
 
-    self.save = function () {
+    self.save = function (callback) {
       hueAnalytics.log('notebook', 'save');
 
       // Remove the result data from the snippets
@@ -2255,10 +2306,11 @@ var EditorViewModel = (function() {
         if (data.status == 0) {
           self.id(data.id);
           self.isSaved(true);
+          var wasHistory = self.isHistory();
           self.isHistory(false);
           $(document).trigger("info", data.message);
           if (vm.editorMode()) {
-            if (data.save_as) {
+            if (! data.save_as) {
               var existingQuery = self.snippets()[0].queries().filter(function (item) {
                 return item.uuid() === data.uuid
               });
@@ -2267,13 +2319,16 @@ var EditorViewModel = (function() {
                 existingQuery[0].description(data.description);
                 existingQuery[0].last_modified(data.last_modified);
               }
-            } else {
+            } else if (self.snippets()[0].queries().length > 0) { // Saved queries tab already loaded
               self.snippets()[0].queries.unshift(ko.mapping.fromJS(data));
             }
 
             if (self.coordinatorUuid() && self.schedulerViewModel) {
               self.saveScheduler();
               self.schedulerViewModel.coordinator.refreshParameters();
+            }
+            if (wasHistory || data.save_as) {
+              self.loadScheduler();
             }
 
             if (vm.isHue4()){
@@ -2288,9 +2343,10 @@ var EditorViewModel = (function() {
               vm.changeURL('/notebook/notebook?notebook=' + data.id);
             }
           }
-          huePubSub.publish('assist.document.refresh');
-        }
-        else {
+          if (typeof callback == "function") {
+            callback();
+          }
+        } else {
           $(document).trigger("error", data.message);
         }
       }).fail(function (xhr, textStatus, errorThrown) {
@@ -2316,24 +2372,14 @@ var EditorViewModel = (function() {
     };
 
     self.executeAll = function () {
-      if (self.snippets().length < 1) {
+      if (self.isExecutingAll()) {
         return;
       }
 
-      var index = 0;
-      self.snippets()[index].execute();
-      var clock = window.setInterval(next, 100, 'editor');
+      self.isExecutingAll(true);
+      self.executingAllIndex(0);
 
-      function next() {
-        if (self.snippets()[index].status() == 'available' || self.snippets()[index].status() == 'failed') {
-          index = index + 1;
-          if (self.snippets().length > index) {
-            self.snippets()[index].execute();
-          } else {
-            window.clearInterval(clock);
-          }
-        }
-      }
+      self.snippets()[self.executingAllIndex()].execute();
     };
 
     self.saveDefaultUserProperties = function (session) {
@@ -2547,9 +2593,7 @@ var EditorViewModel = (function() {
                   self.schedulerViewModelIsLoaded(true);
 
                   if (_action == 'new') {
-                    self.coordinatorUuid(UUID());
-                    self.schedulerViewModel.coordinator.uuid(self.coordinatorUuid());
-                    self.schedulerViewModel.coordinator.properties.document(self.uuid());
+                    self.schedulerViewModel.coordinator.properties.document(self.uuid()); // Expected for triggering the display
                   }
                 }
               });
@@ -2569,7 +2613,6 @@ var EditorViewModel = (function() {
         }
 
         getCoordinator();
-
       }
     };
 
@@ -2578,7 +2621,10 @@ var EditorViewModel = (function() {
         self.schedulerViewModel.coordinator.isManaged(true);
         self.schedulerViewModel.coordinator.properties.document(self.uuid());
         self.schedulerViewModel.save(function(data) {
-          self.coordinatorUuid(data.uuid);
+          if (! self.coordinatorUuid()) {
+            self.coordinatorUuid(data.uuid);
+            self.save();
+          }
         });
       }
     };
@@ -2599,6 +2645,7 @@ var EditorViewModel = (function() {
     self.viewSchedulerId.subscribe(function(newVal) {
       self.save();
     });
+    self.isSchedulerJobRunning = ko.observable();
     self.loadingScheduler = ko.observable(false);
 
 
@@ -2670,6 +2717,7 @@ var EditorViewModel = (function() {
         self.editorType('notebook');
         self.preEditorTogglingSnippet(_notebook.snippets()[0]);
         var _variables = _notebook.snippets()[0].variables();
+        var _statementKeys = [];
         // Split statements
         _notebook.type('notebook');
         _notebook.snippets()[0].statementsList().forEach(function (sql_statement) {
@@ -2691,7 +2739,13 @@ var EditorViewModel = (function() {
             _snippet.init();
             _notebook.presentationSnippets()[sql_statement.hashCode()] = _snippet;
           }
+          _statementKeys.push(sql_statement.hashCode());
           _newSnippets.push(_snippet);
+        });
+        $.each(_notebook.presentationSnippets(), function(key, statement) { // Dead statements
+          if (! key in _statementKeys) {
+            delete _notebook.presentationSnippets()[key];
+          }
         });
       } else {
         self.editorType(options.editor_type);
@@ -2837,6 +2891,27 @@ var EditorViewModel = (function() {
       }
     });
 
+    var withActiveSnippet = function (callback) {
+      var notebook = self.selectedNotebook();
+      var foundSnippet;
+      if (notebook) {
+        if (notebook.snippets().length === 1) {
+          foundSnippet = notebook.snippets()[0];
+        } else {
+          notebook.snippets().every(function (snippet) {
+            if (snippet.inFocus()) {
+              foundSnippet = snippet;
+              return false;
+            }
+            return true;
+          });
+        }
+      }
+      if (foundSnippet) {
+        callback(foundSnippet);
+      }
+    };
+
     huePubSub.subscribe('assist.highlight.risk.suggestions', function () {
       if (self.isRightPanelAvailable() && !self.isRightPanelVisible()) {
         self.isRightPanelVisible(true);
@@ -2849,6 +2924,62 @@ var EditorViewModel = (function() {
     });
 
     huePubSub.subscribe('context.panel.visible.editor', self.isContextPanelVisible);
+
+    huePubSub.subscribe('get.active.snippet.type', function () {
+      withActiveSnippet(function (activeSnippet) {
+        huePubSub.publish('set.active.snippet.type', activeSnippet.type());
+      })
+    }, self.huePubSubId);
+
+    huePubSub.subscribe('assist.db.refresh', function (options) {
+      var notebook = self.selectedNotebook();
+      if (notebook) {
+        notebook.snippets().forEach(function (snippet) {
+          if (options.sourceTypes.indexOf(snippet.type()) !== -1) {
+            snippet.updateDatabases();
+          }
+        });
+      }
+    }, self.huePubSubId);
+
+    huePubSub.subscribe('save.snippet.to.file', function() {
+      withActiveSnippet(function (activeSnippet) {
+        var data = {
+          path: activeSnippet.statementPath(),
+          contents: activeSnippet.statement()
+        };
+        var options = {
+          successCallback: function (result) {
+            if (result && result.exists) {
+              $(document).trigger("info", result.path + ' saved successfully.');
+            } else {
+              self._ajaxError(result);
+            }
+          }
+        };
+        ApiHelper.getInstance().saveSnippetToFile(data, options);
+      });
+    }, self.huePubSubId);
+
+    huePubSub.subscribe('sql.context.pin', function (contextData) {
+      withActiveSnippet(function (activeSnippet) {
+        contextData.tabId = 'context' + activeSnippet.pinnedContextTabs().length;
+        activeSnippet.pinnedContextTabs.push(contextData);
+        activeSnippet.currentQueryTab(contextData.tabId);
+      });
+    }, self.huePubSubId);
+
+    huePubSub.subscribe("assist.database.set", function (databaseDef) {
+      withActiveSnippet(function (activeSnippet) {
+        activeSnippet.handleAssistSelection(databaseDef);
+      });
+    }, self.huePubSubId);
+
+    huePubSub.subscribe("assist.database.selected", function (databaseDef) {
+      withActiveSnippet(function (activeSnippet) {
+        activeSnippet.handleAssistSelection(databaseDef);
+      });
+    }, self.huePubSubId);
 
     self.availableSnippets = ko.mapping.fromJS(options.languages);
 
@@ -2924,9 +3055,10 @@ var EditorViewModel = (function() {
         notebook.snippets().forEach(function (snippet) {
           snippet.statement_raw.valueHasMutated();
           if (snippet.result.handle().statements_count > 1 && snippet.result.handle().start != null && snippet.result.handle().end != null) {
+            var aceLineOffset = snippet.result.handle().aceLineOffset || 0;
             snippet.result.statement_range({
-              start: snippet.result.handle().start,
-              end: snippet.result.handle().end
+              start: { row: snippet.result.handle().start.row + aceLineOffset, column: snippet.result.handle().start.column },
+              end: { row: snippet.result.handle().end.row + aceLineOffset, column: snippet.result.handle().end.column }
             });
             snippet.result.statement_range.valueHasMutated();
           }
@@ -3042,7 +3174,9 @@ var EditorViewModel = (function() {
       self.selectedNotebook().id(null);
       self.selectedNotebook().uuid(UUID());
       self.selectedNotebook().parentSavedQueryUuid(null);
-      self.saveNotebook();
+      self.selectedNotebook().save(function () {
+        huePubSub.publish('assist.document.refresh');
+      });
     };
   }
 

@@ -85,13 +85,14 @@ var HueFileEntry = (function () {
     self.userGroups = options.userGroups;
     self.superuser = options.superuser;
     self.serverTypeFilter = options.serverTypeFilter || ko.observable({ type: 'all' });
+    self.statsVisible = ko.observable(false);
+    self.highlight = ko.observable(false);
 
     self.document = ko.observable();
     self.selectedDocsWithDependents = ko.observable([]);
     self.importedDocSummary = ko.observable();
     self.showTable = ko.observable();
     self.entries = ko.observableArray([]);
-
 
     // Filter is only used in the assist panel at the moment
     self.isFilterVisible = ko.observable(false);
@@ -139,7 +140,7 @@ var HueFileEntry = (function () {
       return result;
     });
 
-    self.typeFilter = ko.observable(self.availableTypeFilters()[0]); // First one is always 'all'
+    self.typeFilter = options.typeFilter || ko.observable(self.availableTypeFilters()[0]); // First one is always 'all'
 
     self.isFilterVisible.subscribe(function (newValue) {
       if (!newValue && self.filter()) {
@@ -152,9 +153,10 @@ var HueFileEntry = (function () {
       var typeFilter = self.typeFilter().type;
       if (filter || typeFilter !== 'all') {
         return self.entries().filter(function (entry) {
-          return (typeFilter === 'all' || entry.definition().type === typeFilter)
+          var entryType = entry.definition().type;
+          return (typeFilter === 'all' || entryType === typeFilter || entryType === 'directory')
             && (!filter || entry.definition().name.toLowerCase().indexOf(filter) !== -1 ||
-            (DocumentTypeGlobals[entry.definition().type] && DocumentTypeGlobals[entry.definition().type].toLowerCase().indexOf(filter) !== -1));
+            (DocumentTypeGlobals[entryType] && DocumentTypeGlobals[entryType].toLowerCase().indexOf(filter) !== -1));
         })
       }
       return self.entries();
@@ -296,6 +298,61 @@ var HueFileEntry = (function () {
     }
   };
 
+  HueFileEntry.prototype.highlightInside = function (uuid) {
+    var self = this;
+    self.typeFilter(self.availableTypeFilters()[0]);
+    var foundEntry;
+    self.entries().forEach(function (entry) {
+      entry.highlight(false);
+      if (entry.definition() && entry.definition().uuid === uuid) {
+        foundEntry = entry;
+      }
+    });
+    if (foundEntry) {
+      window.setTimeout(function () {
+        huePubSub.subscribeOnce('assist.db.scrollToComplete', function () {
+          foundEntry.highlight(true);
+          // Timeout is for animation effect
+          window.setTimeout(function () {
+            foundEntry.highlight(false);
+          }, 1800);
+        });
+        huePubSub.publish('assist.db.scrollTo', foundEntry);
+      }, 0);
+    }
+  };
+
+  HueFileEntry.prototype.showContextPopover = function (entry, event, positionAdjustment) {
+    var self = this;
+    var $source = $(event.target);
+    var offset = $source.offset();
+    if (positionAdjustment) {
+      offset.left += positionAdjustment.left;
+      offset.top += positionAdjustment.top;
+    }
+
+    self.statsVisible(true);
+    huePubSub.publish('context.popover.show', {
+      data: {
+        type: 'hue',
+        definition: self.definition()
+      },
+      showInAssistEnabled: false,
+      orientation: 'right',
+      pinEnabled: false,
+      source: {
+        element: event.target,
+        left: offset.left,
+        top: offset.top - 3,
+        right: offset.left + $source.width() + 1,
+        bottom: offset.top + $source.height() - 3
+      }
+    });
+    huePubSub.subscribeOnce('context.popover.hidden', function () {
+      self.statsVisible(false);
+    });
+  };
+
   HueFileEntry.prototype.addDirectoryParamToUrl = function (url) {
     var self = this;
 
@@ -422,6 +479,7 @@ var HueFileEntry = (function () {
       trashEntry: self.trashEntry,
       apiHelper: self.apiHelper,
       serverTypeFilter: self.serverTypeFilter,
+      typeFilter: self.typeFilter,
       app: self.app,
       user: self.user,
       superuser: self.superuser
@@ -516,7 +574,7 @@ var HueFileEntry = (function () {
     }
   };
 
-  HueFileEntry.prototype.load = function (callback) {
+  HueFileEntry.prototype.load = function (successCallback, errorCallback, silenceErrors) {
     var self = this;
     if (self.loading()) {
       return;
@@ -527,6 +585,7 @@ var HueFileEntry = (function () {
       self.apiHelper.fetchDocuments({
         uuid: self.definition().uuid,
         type: self.serverTypeFilter().type,
+        silenceErrors: !!silenceErrors,
         successCallback: function(data) {
           self.definition(data.document);
           self.hasErrors(false);
@@ -557,15 +616,18 @@ var HueFileEntry = (function () {
 
           if (self.isRoot() && self.entries().length === 1 && self.entries()[0].definition().type === 'directory' && self.entries()[0].isSharedWithMe()) {
             self.activeEntry(self.entries()[0]);
-            self.activeEntry().load(callback);
-          } else if (callback && typeof callback === 'function') {
-            callback();
+            self.activeEntry().load(successCallback);
+          } else if (successCallback && typeof successCallback === 'function') {
+            successCallback();
           }
         },
         errorCallback: function () {
           self.hasErrors(true);
           self.loading(false);
           self.loaded(true);
+          if (errorCallback) {
+            errorCallback();
+          }
         }
       });
     }
@@ -713,6 +775,9 @@ var HueFileEntry = (function () {
 
   HueFileEntry.prototype.makeActive = function () {
     var self = this;
+    if (!self.loaded()) {
+      self.load();
+    }
     self.activeEntry(this);
   };
 

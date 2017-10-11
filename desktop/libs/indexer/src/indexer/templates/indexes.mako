@@ -343,7 +343,7 @@ ${ assist.assistPanel() }
 
 
 <script type="text/html" id="list-indexes">
-  <table class="table table-condensed datatables">
+  <table class="table table-condensed datatables" id="list-indexes-table">
     <thead>
       <tr>
         <th class="vertical-align-middle" width="1%"><div data-bind="click: selectAll, css: {hueCheckbox: true, 'fa': true, 'fa-check': allSelected}" class="select-all"></div></th>
@@ -355,7 +355,7 @@ ${ assist.assistPanel() }
     <tbody data-bind="foreach: { data: filteredIndexes }">
       <tr>
         <td data-bind="click: $root.handleSelect" class="center" style="cursor: default">
-          <div data-bind="css: {'hueCheckbox': true, 'fa': true, 'fa-check': isSelected}"></div>
+          <div data-bind="multiCheck: '#list-indexes-table', css: {'hueCheckbox': true, 'fa': true, 'fa-check': isSelected}"></div>
         </td>
         <td><a class="pointer" data-bind="text: name, click: function() { $root.fetchIndex($data); }"></a></td>
         <td data-bind="text: type"></td>
@@ -375,7 +375,7 @@ ${ assist.assistPanel() }
   <ul class="nav nav-tabs nav-tabs-border">
     <li class="active"><a href="#index-overview" data-toggle="tab" data-bind="click: function(){ $root.tab('index-overview'); }">${_('Overview')}</a></li>
     <li><a href="#index-columns" data-toggle="tab" data-bind="click: function(){ $root.tab('index-columns'); }">${_('Fields')} (<span data-bind="text: fields().length"></span>)</a></li>
-    <li><a href="#index-sample" data-toggle="tab" data-bind="click: function(){ $root.tab('index-sample'); }">${_('Sample')}</a></li>
+    <li><a href="#index-sample" data-toggle="tab" data-bind="click: function(){ $root.tab('index-sample'); }">${_('Sample')} (<span data-bind="text: sample().length"></span>)</a></li>
   </ul>
 
   <div class="tab-content" style="border: none; overflow: hidden">
@@ -407,7 +407,8 @@ ${ assist.assistPanel() }
 <script type="text/html" id="indexes-index-overview">
   <div>
     <!-- ko template: 'indexes-index-properties' --><!-- /ko -->
-    <h4>${ _('Fields') }</h4>
+
+    <h4>${ _('Fields') } (<span data-bind="text: fields().length"></span>)</h4>
     <!-- ko template: { name: 'indexes-index-fields-fields', data: fieldsPreview }--><!-- /ko -->
     <a class="pointer" data-bind="visible: fields().length > fieldsPreview().length, click: function() { $('li a[href=\'#index-columns\']').click(); }">
       ${_('View more...')}
@@ -415,8 +416,7 @@ ${ assist.assistPanel() }
 
     <br><br>
 
-    <h4>${ _('Sample') }</h4>
-
+    <h4>${ _('Sample') } (<span data-bind="text: sample().length"></span>)</h4>
     <!-- ko if: samplePreview() && samplePreview().length > 0 -->
     <div style="overflow: auto">
       <!-- ko template: { name: 'indexes-index-sample', data: samplePreview, full: false }--><!-- /ko -->
@@ -608,13 +608,13 @@ ${ assist.assistPanel() }
     };
 
 
-    var Index = function (vm, data) {
+    var Index = function (vm, index) {
       var self = this;
 
-      self.name = ko.observable(data.name);
-      self.type = ko.observable(data.type);
-      self.uniqueKey = ko.observable(data.schema.uniqueKey);
-      self.fields = ko.mapping.fromJS(data.schema.fields);
+      self.name = ko.observable(index.name);
+      self.type = ko.observable(index.type);
+      self.uniqueKey = ko.observable(index.schema.uniqueKey);
+      self.fields = ko.mapping.fromJS(index.schema.fields);
       self.fieldsPreview = ko.pureComputed(function () {
         return self.fields().slice(0, 5)
       });
@@ -628,12 +628,12 @@ ${ assist.assistPanel() }
         return returned;
       });
 
-      self.dynamicFields = ko.mapping.fromJS(data.schema.dynamicFields);
-      self.copyFields = ko.mapping.fromJS(data.schema.copyFields);
+      self.dynamicFields = ko.mapping.fromJS(index.schema.dynamicFields);
+      self.copyFields = ko.mapping.fromJS(index.schema.copyFields);
 
       self.sample = ko.observableArray();
       self.samplePreview = ko.pureComputed(function () {
-        return self.sample().splice(0, 5)
+        return self.sample().slice(0, 5)
       });
 
       self.loadingSample = ko.observable(false);
@@ -664,6 +664,7 @@ ${ assist.assistPanel() }
           if (data.status == 0) {
             vm.indexes.remove(function(index) { return index.name() == indexName; });
             huePubSub.publish('assist.collections.refresh');
+            vm.showIndexes(false);
           } else {
             $(document).trigger("error", data.message);
           }
@@ -731,6 +732,7 @@ ${ assist.assistPanel() }
                     fixedHeader: true,
                     fixedFirstColumn: true,
                     includeNavigator: false,
+                    lockSelectedRow: false,
                     parentId: 'index-sample',
                     classToRemove: 'sample-table',
                     mainScrollable: '${ MAIN_SCROLLABLE }',
@@ -809,11 +811,13 @@ ${ assist.assistPanel() }
 
       self.datatable = null;
 
-      self.showIndexes = function () {
+      self.showIndexes = function (reload) {
         self.section('list-indexes');
         self.index(null);
         hueUtils.changeURL(self.baseURL);
-        self.fetchIndexes();
+        if (typeof reload == 'undefined' || reload) {
+          self.fetchIndexes();
+        }
         $('#fieldAnalysisIndexes').hide();
       }
 

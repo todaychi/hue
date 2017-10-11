@@ -18,7 +18,7 @@
   from desktop import conf
 %>
 
-% if conf.DJANGO_DEBUG_MODE.get():
+% if conf.DEV.get():
 importScripts('${ static('desktop/js/autocomplete/sqlParseSupport.js') }' + '?' + Math.random());
 importScripts('${ static('desktop/js/autocomplete/sqlSyntaxParser.js') }' + '?' + Math.random());
 % else:
@@ -61,7 +61,8 @@ importScripts('${ static('desktop/js/autocomplete/sqlSyntaxParser.js') }');
         toAbsoluteLocation(msg.data.statementLocation, syntaxError.loc);
       }
       postMessage({
-        syntaxError: syntaxError
+        syntaxError: syntaxError,
+        statementLocation: msg.data.statementLocation
       });
     }, 400);
   }

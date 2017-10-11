@@ -23,6 +23,8 @@
 
 <%!
   from django.utils.translation import ugettext as _
+
+  from dashboard.conf import HAS_QUERY_BUILDER_ENABLED, HAS_REPORT_ENABLED
 %>
 
 <%def name="import_layout(with_deferred=False)">
@@ -45,25 +47,43 @@
   %if not hasattr(caller, "skipLayout"):
   <div style="float: left" data-bind="visible: columns().length == 0">
     <div class="toolbar-label">${_('LAYOUT')}</div>
-    <a href="javascript: magicSearchLayout(searchViewModel)" onmouseover="searchViewModel.previewColumns('magic')" onmouseout="searchViewModel.previewColumns('')">
+    <a href="javascript: magicSearchLayout(searchViewModel)" title="${ _('Dynamic dashboard: multiple interconnected widgets') }" onmouseover="searchViewModel.previewColumns('magic')" onmouseout="searchViewModel.previewColumns('')">
       <div class="layout-container">
         <div class="layout-box" style="width: 24px"></div>
-        <div class="layout-box" style="width: 72px; margin-left: 4px"><i class="fa fa-table"></i></div>
+        <div class="layout-box" style="width: 72px; margin-left: 4px"><i class="fa fa-line-chart"></i></div>
       </div>
     </a>
-    <a href="javascript: fullLayout(searchViewModel)" onmouseover="searchViewModel.previewColumns('full')" onmouseout="searchViewModel.previewColumns('')">
+    % if HAS_QUERY_BUILDER_ENABLED.get():
+    <a href="javascript: fullLayout(searchViewModel)" title="${ _('Query Builder: Single widget for easily analysing data in multiple dimensions') }" onmouseover="searchViewModel.previewColumns('qbuilder')" onmouseout="searchViewModel.previewColumns('')">
+      <div class="layout-container">
+        <div class="layout-box" style="width: 100px;"><i class="fa fa-table"></i></div>
+      </div>
+    </a>
+    % endif
+    % if HAS_REPORT_ENABLED.get():
+    <a href="javascript: fullLayout(searchViewModel)" title="${ _('Report: static dashboard with multiple widgets executing independent queries') }" onmouseover="searchViewModel.previewColumns('dashboard')" onmouseout="searchViewModel.previewColumns('')">
+      <div class="layout-container">
+        <div class="layout-box" style="width: 100px;">
+          <i class="fa fa-area-chart"></i>
+        </div>
+      </div>
+    </a>
+    % endif
+    <a href="javascript: fullLayout(searchViewModel)" title="${ _('Empty dashboard that can be used as a starting point') }" onmouseover="searchViewModel.previewColumns('full')" onmouseout="searchViewModel.previewColumns('')">
       <div class="layout-container">
         <div class="layout-box" style="width: 100px;"></div>
       </div>
     </a>
   </div>
   %endif
+
   %if hasattr(caller, "results"):
   <div style="float: left; margin-left: 20px" data-bind="visible: columns().length > 0">
     <div class="toolbar-label">${_('RESULTS')}</div>
     ${caller.results()}
   </div>
   %endif
+
   %if hasattr(caller, "widgets"):
   <div class="card-toolbar-content" style="float: left; margin-left: 20px" data-bind="visible: columns().length > 0">
     %if hasattr(caller, "widgetSectionName"):
@@ -74,6 +94,7 @@
     ${caller.widgets()}
   </div>
   %endif
+
   <div class="clearfix"></div>
 </div>
 
@@ -92,26 +113,57 @@
 
 
   <div data-bind="visible: isEditing() && previewColumns() != '' && columns().length == 0, css:{'with-top-margin': isEditing()}">
-  <div class="container-fluid">
-    <div class="row-fluid" data-bind="visible: previewColumns() == 'full'">
-      <div class="span12 preview-row">
-        <div style="font-size: 80px; padding-top: 120px">${ _('One column layout') }</div>
-      </div>
-    </div>
-    <div class="row-fluid" data-bind="visible: previewColumns() == 'magic'">
-      <div class="span2 preview-row"></div>
-      <div class="span10">
-        <div class="preview-row" style="font-size: 120px; min-height: 50px !important;">
-          <i class="fa fa-filter"></i>
-        </div>
-        <div class="preview-row" style="margin-top: 40px; padding-top: 40px; padding-bottom: 0; min-height: 200px !important;">
-          <i class="fa fa-table" style="font-size: 120px"></i><br/>
-          <div style="font-size: 80px; padding-top: 20px">${ _('Grid results') }</div>
+    <div class="container-fluid">
+
+      <div class="row-fluid" data-bind="visible: previewColumns() == 'full'">
+        <div class="span12 preview-row">
+          <div style="font-size: 80px; padding-top: 120px">${ _('Blank') }</div>
         </div>
       </div>
+
+      <div class="row-fluid" data-bind="visible: previewColumns() == 'magic'">
+        <div class="span2 preview-row" style="font-size: 120px;">
+          <i class="fa fa-pie-chart" style="padding-top: 10px"></i>
+        </div>
+        <div class="span10">
+          <div class="preview-row" style="font-size: 120px; min-height: 50px !important;">
+            <i class="fa fa-filter"></i>
+          </div>
+          <div class="preview-row" style="margin-top: 40px; padding-top: 40px; padding-bottom: 0; min-height: 200px !important;">
+            <i class="fa fa-line-chart" style="font-size: 120px"></i><br/>
+            <div style="font-size: 80px; padding-top: 20px">${ _('Dashboard') }</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row-fluid" data-bind="visible: previewColumns() == 'qbuilder'">
+        <div class="span12">
+          <div class="preview-row" style="font-size: 120px; min-height: 50px !important;">
+            <i class="fa fa-square"></i>
+            <i class="fa fa-square" style="margin-left: 20px"></i>
+            <i class="fa fa-superscript" style="margin-left: 20px"></i>
+          </div>
+          <div class="preview-row" style="margin-top: 40px; padding-top: 40px; padding-bottom: 0; min-height: 200px !important;">
+            <i class="fa fa-table" style="font-size: 120px"></i><br/>
+            <div style="font-size: 80px; padding-top: 20px">${ _('Query Builder') }</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row-fluid" data-bind="visible: previewColumns() == 'dashboard'">
+        <div class="span12">
+          <div class="preview-row" style="font-size: 120px; min-height: 50px !important;">
+            <i class="fa fa-pie-chart"></i>
+          </div>
+          <div class="preview-row" style="margin-top: 40px; padding-top: 40px; padding-bottom: 0; min-height: 200px !important;">
+            <i class="fa fa-area-chart" style="font-size: 120px"></i><br/>
+            <div style="font-size: 80px; padding-top: 20px">${ _('Report') }</div>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
-</div>
 
 <div data-bind="css: {'dashboard': true, 'with-top-margin': isEditing()}">
   <div class="container-fluid">
@@ -139,21 +191,22 @@
     <div class="pull-right margin-right-10" data-bind="visible: $root.isEditing()">
       <a href="javascript:void(0)" data-bind="visible: size() > 2, click: shrinkColumn" title="${ _('Make column smaller') }"><i class="fa fa-step-backward"></i></a>
       <a href="javascript:void(0)" data-bind="visible: size() < 12, click: expandColumn" title="${ _('Make column larger') }"><i class="fa fa-step-forward"></i></a>
-      <a href="javascript:void(0)" data-bind="visible: $parent.columns().length < 2, click: addColumn" title="${ _('Add a column') }"><i class="fa fa-plus"></i></a>
+      <a href="javascript:void(0)" data-bind="visible: $parent.columns().length < 2, click: addColumnRight" title="${ _('Add a column to the right') }"><i class="fa fa-plus"></i></a>
       <a href="javascript:void(0)" data-bind="visible: true, click: removeColumn" title="${ _('Remove this column') }"><i class="fa fa-times"></i></a>
     </div>
     <div class="pull-left margin-left-10" data-bind="visible: $root.isEditing()">
-      <a href="javascript:void(0)" data-bind="visible: $index() == 0, click: function() { moveRight($index()) }" title="${ _('Move column to the right') }"><i class="fa fa-arrow-right"></i></a>
+      <a href="javascript:void(0)" data-bind="visible: $index() == 0 && $parent.columns().length > 1, click: function() { moveRight($index()) }" title="${ _('Move column to the right') }"><i class="fa fa-arrow-right"></i></a>
+      <a href="javascript:void(0)" data-bind="visible: $parent.columns().length < 2, click: addColumnLeft" title="${ _('Add a column to the left') }"><i class="fa fa-plus"></i></a>
       <a href="javascript:void(0)" data-bind="visible: $index() > 0, click: function() { moveLeft($index()) }" title="${ _('Move column to the left') }"><i class="fa fa-arrow-left"></i></a>
     </div>
     <div class="clearfix"></div>
     <div class="container-fluid" data-bind="visible: $root.isEditing()">
-      <div data-bind="click: function(){$data.addEmptyRow(true)}, css: {'add-row': true, 'is-editing': $root.isEditing}, sortable: { data: drops, isEnabled: $root.isEditing, 'afterMove': function(event){var widget=event.item; var _r = $data.addEmptyRow(true); _r.addWidget(widget);$('.card-body').slideDown('fast', function(){$(window).scrollTop(lastWindowScrollPosition)}); columnDropAdditionalHandler(widget)}, options: {'placeholder': 'add-row-highlight', 'greedy': true, 'stop': function(event, ui){$('.card-body').slideDown('fast', function(){$(window).scrollTop(lastWindowScrollPosition)});}}}"></div>
+      <div data-bind="click: function(){$data.addEmptyRow(true)}, css: {'add-row': true, 'is-editing': $root.isEditing}, droppable: { data: function() { $root.collection.dropOnEmpty($data, true) }, options:{ greedy:true }}, sortable: { data: drops, isEnabled: $root.isEditing, 'afterMove': function(event){var widget=event.item; var _r = $data.addEmptyRow(true); _r.addWidget(widget);$('.card-body').slideDown('fast', function(){$(window).scrollTop(lastWindowScrollPosition)}); columnDropAdditionalHandler(widget)}, options: {'placeholder': 'add-row-highlight', 'greedy': true, 'stop': function(event, ui){$('.card-body').slideDown('fast', function(){$(window).scrollTop(lastWindowScrollPosition)});}}}"></div>
     </div>
     <div data-bind="template: { name: 'row-template${ suffix }', foreach: rows}">
     </div>
     <div class="container-fluid" data-bind="visible: $root.isEditing() && rows().length > 0">
-      <div data-bind="click: function(){$data.addEmptyRow()}, css: {'add-row': true, 'is-editing': $root.isEditing}, sortable: { data: drops, isEnabled: $root.isEditing, 'afterMove': function(event){var widget=event.item; var _r = $data.addEmptyRow(); _r.addWidget(widget);$('.card-body').slideDown('fast', function(){$(window).scrollTop(lastWindowScrollPosition)}); columnDropAdditionalHandler(widget)}, options: {'placeholder': 'add-row-highlight', 'greedy': true, 'stop': function(event, ui){$('.card-body').slideDown('fast', function(){$(window).scrollTop(lastWindowScrollPosition)});}}}"></div>
+      <div data-bind="click: function(){$data.addEmptyRow()}, css: {'add-row': true, 'is-editing': $root.isEditing}, droppable: { data: function() { $root.collection.dropOnEmpty($data, false) }, options:{ greedy:true }}, sortable: { data: drops, isEnabled: $root.isEditing, 'afterMove': function(event){var widget=event.item; var _r = $data.addEmptyRow(); _r.addWidget(widget);$('.card-body').slideDown('fast', function(){$(window).scrollTop(lastWindowScrollPosition)}); columnDropAdditionalHandler(widget)}, options: {'placeholder': 'add-row-highlight', 'greedy': true, 'stop': function(event, ui){$('.card-body').slideDown('fast', function(){$(window).scrollTop(lastWindowScrollPosition)});}}}"></div>
     </div>
   </div>
 </script>
@@ -161,7 +214,7 @@
 <script type="text/html" id="row-template${ suffix }">
   <div class="emptyRow" data-bind="visible: widgets().length == 0 && $index() == 0 && $root.isEditing() && $parent.size() > 4 && $parent.rows().length == 1">
     <img src="${ static('desktop/art/hint_arrow_flipped.png') }" style="float:left; margin-right: 10px" alt="${ _('Hint arrow') }"/>
-    <div style="float:left; text-align: center; width: 260px">${_('Drag any of the widgets inside your empty row')}</div>
+    <div style="float: left; text-align: center; width: 260px">${_('Drag any of the widgets inside your empty row')}</div>
     <div class="clearfix"></div>
   </div>
   <div class="container-fluid">
@@ -190,7 +243,7 @@
 </script>
 
 <script type="text/html" id="widget-template${ suffix }">
-  <div data-bind="attr: {'id': 'wdg_'+ id(),}, css: klass">
+  <div data-bind="attr: {'id': 'wdg_'+ id(),}, css: klass, droppable: { data: function() { $root.collection.dropOnWidget(id()) }, options:{ greedy:true }}">
     <h2 class="card-heading simple">
       <span data-bind="visible: $root.isEditing">
         <a href="javascript:void(0)" class="move-widget"><i class="fa fa-arrows"></i></a>
@@ -250,48 +303,4 @@
       CUSTOM_POPOVER_CONTENT: "${_('Start')}: NOW-5DAYS<br/>${_('End')}: NOW<br/>${_('Interval')}: +1HOURS<br/><a href='http://lucene.apache.org/solr/4_10_2/solr-core/org/apache/solr/util/DateMathParser.html' target='_blank'>${_('Read more...')}</a>"
     };
   </script>
-</%def>
-
-
-<%def name="import_charts()">
-  <link rel="stylesheet" href="${ static('desktop/ext/css/leaflet.css') }">
-  <link rel="stylesheet" href="${ static('desktop/ext/css/leaflet.markercluster.css') }">
-  <link rel="stylesheet" href="${ static('desktop/ext/css/leaflet.zoombox.css') }">
-  <link rel="stylesheet" href="${ static('desktop/ext/css/nv.d3.min.css') }">
-  <link rel="stylesheet" href="${ static('desktop/css/nv.d3.css') }">
-
-  <script src="${ static('desktop/js/hue.geo.js') }" type="text/javascript" charset="utf-8"></script>
-
-  <script src="${ static('desktop/ext/js/leaflet/leaflet.js') }" type="text/javascript" charset="utf-8"></script>
-  <script src="${ static('desktop/ext/js/leaflet/leaflet.markercluster.js') }" type="text/javascript" charset="utf-8"></script>
-  <script src="${ static('desktop/ext/js/leaflet/leaflet.zoombox.js') }" type="text/javascript" charset="utf-8"></script>
-
-  <script src="${ static('desktop/js/nv.d3.js') }" type="text/javascript" charset="utf-8"></script>
-  <script src="${ static('desktop/ext/js/topojson.v1.min.js') }" type="text/javascript" charset="utf-8"></script>
-  <script src="${ static('desktop/ext/js/topo/world.topo.js') }" type="text/javascript" charset="utf-8"></script>
-  <script src="${ static('desktop/ext/js/topo/usa.topo.js') }" type="text/javascript" charset="utf-8"></script>
-  <script src="${ static('desktop/ext/js/topo/chn.topo.js') }" type="text/javascript" charset="utf-8"></script>
-  <script src="${ static('desktop/ext/js/topo/bra.topo.js') }" type="text/javascript" charset="utf-8"></script>
-  <script src="${ static('desktop/ext/js/topo/can.topo.js') }" type="text/javascript" charset="utf-8"></script>
-  <script src="${ static('desktop/ext/js/topo/ind.topo.js') }" type="text/javascript" charset="utf-8"></script>
-  <script src="${ static('desktop/ext/js/topo/gbr.topo.js') }" type="text/javascript" charset="utf-8"></script>
-  <script src="${ static('desktop/ext/js/topo/ita.topo.js') }" type="text/javascript" charset="utf-8"></script>
-  <script src="${ static('desktop/ext/js/topo/fra.topo.js') }" type="text/javascript" charset="utf-8"></script>
-  <script src="${ static('desktop/ext/js/topo/deu.topo.js') }" type="text/javascript" charset="utf-8"></script>
-  <script src="${ static('desktop/ext/js/topo/jpn.topo.js') }" type="text/javascript" charset="utf-8"></script>
-  <script src="${ static('desktop/ext/js/topo/aus.topo.js') }" type="text/javascript" charset="utf-8"></script>
-
-  <script src="${ static('desktop/js/nv.d3.datamaps.js') }" type="text/javascript" charset="utf-8"></script>
-  <script src="${ static('desktop/js/nv.d3.legend.js') }" type="text/javascript" charset="utf-8"></script>
-  <script src="${ static('desktop/js/nv.d3.multiBarWithBrushChart.js') }" type="text/javascript" charset="utf-8"></script>
-  <script src="${ static('desktop/js/nv.d3.lineWithBrushChart.js') }" type="text/javascript" charset="utf-8"></script>
-  <script src="${ static('desktop/js/nv.d3.growingDiscreteBar.js') }" type="text/javascript" charset="utf-8"></script>
-  <script src="${ static('desktop/js/nv.d3.growingDiscreteBarChart.js') }" type="text/javascript" charset="utf-8"></script>
-  <script src="${ static('desktop/js/nv.d3.growingMultiBar.js') }" type="text/javascript" charset="utf-8"></script>
-  <script src="${ static('desktop/js/nv.d3.growingMultiBarChart.js') }" type="text/javascript" charset="utf-8"></script>
-  <script src="${ static('desktop/js/nv.d3.growingPie.js') }" type="text/javascript" charset="utf-8"></script>
-  <script src="${ static('desktop/js/nv.d3.growingPieChart.js') }" type="text/javascript" charset="utf-8"></script>
-
-  <script src="${ static('desktop/js/ko.charts.js') }" type="text/javascript" charset="utf-8"></script>
-
 </%def>

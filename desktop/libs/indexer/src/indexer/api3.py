@@ -90,11 +90,20 @@ def guess_format(request):
     _convert_format(format_)
   elif file_format['inputFormat'] == 'table':
     db = dbms.get(request.user)
-    table_metadata = db.get_table(database=file_format['databaseName'], table_name=file_format['tableName'])
-
-    storage = dict([(delim['data_type'], delim['comment']) for delim in table_metadata.storage_details])
+    try:
+      table_metadata = db.get_table(database=file_format['databaseName'], table_name=file_format['tableName'])
+    except Exception, e:
+      raise PopupException(e.message if hasattr(e, 'message') and e.message else e)
+    storage = {}
+    for delim in table_metadata.storage_details:
+      if delim['data_type']:
+        if '=' in delim['data_type']:
+          key, val = delim['data_type'].split('=', 1)
+          storage[key] = val
+        else:
+          storage[delim['data_type']] = delim['comment']
     if table_metadata.details['properties']['format'] == 'text':
-      format_ = {"quoteChar": "\"", "recordSeparator": '\\n', "type": "csv", "hasHeader": False, "fieldSeparator": storage['serialization.format']}
+      format_ = {"quoteChar": "\"", "recordSeparator": '\\n', "type": "csv", "hasHeader": False, "fieldSeparator": storage.get('field.delim', ',')}
     elif table_metadata.details['properties']['format'] == 'parquet':
       format_ = {"type": "parquet", "hasHeader": False,}
     else:
@@ -174,6 +183,11 @@ def importer_submit(request):
   destination['ouputFormat'] = outputFormat # Workaround a very weird bug
   start_time = json.loads(request.POST.get('start_time', '-1'))
 
+  if source['inputFormat'] == 'file':
+    source['path'] = request.fs.netnormpath(source['path']) if source['path'] else source['path']
+  if destination['ouputFormat'] in ('database', 'table'):
+    destination['nonDefaultLocation'] = request.fs.netnormpath(destination['nonDefaultLocation']) if destination['nonDefaultLocation'] else destination['nonDefaultLocation']
+
   if destination['ouputFormat'] == 'index':
     source['columns'] = destination['columns']
     index_name = destination["name"]
@@ -200,7 +214,7 @@ def _create_index(user, fs, client, source, destination, index_name):
   df = destination['indexerPrimaryKey'] and destination['indexerPrimaryKey'][0] or None
   kwargs = {}
 
-  if source['inputFormat'] != 'manual':
+  if source['inputFormat'] not in ('manual', 'table'):
     stats = fs.stats(source["path"])
     if stats.size > MAX_UPLOAD_SIZE:
       raise PopupException(_('File size is too large to handle!'))
@@ -234,7 +248,7 @@ def _create_index(user, fs, client, source, destination, index_name):
         replication=destination['indexerReplicationFactor']
     )
 
-  if source['inputFormat'] != 'manual':
+  if source['inputFormat'] not in ('manual', 'table'):
     data = fs.read(source["path"], 0, MAX_UPLOAD_SIZE)
     client.index(name=index_name, data=data, **kwargs)
 

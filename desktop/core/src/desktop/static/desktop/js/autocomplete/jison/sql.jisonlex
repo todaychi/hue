@@ -28,12 +28,14 @@
 
 // Reserved Keywords
 <hive>'ALL'                                { return '<hive>ALL'; }
-<hive>'ARRAY'                              { return '<hive>ARRAY'; }
+<hive>'ARRAY'                              { return 'ARRAY'; }
 <hive>'AS'                                 { return '<hive>AS'; }
 <hive>'AUTHORIZATION'                      { return '<hive>AUTHORIZATION'; }
 <hive>'BINARY'                             { return '<hive>BINARY'; }
+<hive>'CACHE'                              { return '<hive>CACHE'; }
 <hive>'COLUMN'                             { return '<hive>COLUMN'; }
 <hive>'CONF'                               { return '<hive>CONF'; }
+<hive>'CONSTRAINT'                         { return '<hive>CONSTRAINT'; }
 <hive>'CREATE'                             { parser.determineCase(yytext); return '<hive>CREATE'; }
 <hive>'CUBE'                               { return '<hive>CUBE'; }
 <hive>'CURRENT'                            { return '<hive>CURRENT'; }
@@ -43,6 +45,7 @@
 <hive>'EXTENDED'                           { return '<hive>EXTENDED'; }
 <hive>'EXTERNAL'                           { return '<hive>EXTERNAL'; }
 <hive>'FOR'                                { return '<hive>FOR'; }
+<hive>'FOREIGN'                            { return '<hive>FOREIGN'; }
 <hive>'FUNCTION'                           { return '<hive>FUNCTION'; }
 <hive>'GRANT'                              { return '<hive>GRANT'; }
 <hive>'GROUPING'                           { return '<hive>GROUPING'; }
@@ -51,18 +54,22 @@
 <hive>'LATERAL'                            { return '<hive>LATERAL'; }
 <hive>'LOCAL'                              { return '<hive>LOCAL'; }
 <hive>'MACRO'                              { return '<hive>MACRO'; }
-<hive>'MAP'                                { return '<hive>MAP'; }
+<hive>'MAP'                                { return 'MAP'; }
 <hive>'NONE'                               { return '<hive>NONE'; }
 <hive>'OF'                                 { return '<hive>OF'; }
 <hive>'OUT'                                { return '<hive>OUT'; }
+<hive>'PRIMARY'                            { return '<hive>PRIMARY'; }
+<hive>'REFERENCES'                         { return '<hive>REFERENCES'; }
 <hive>'REVOKE'                             { return '<hive>REVOKE'; }
 <hive>'ROLLUP'                             { return '<hive>ROLLUP'; }
 <hive>'TABLE'                              { return '<hive>TABLE'; }
 <hive>'TIMESTAMP'                          { return '<hive>TIMESTAMP'; }
 <hive>'USER'                               { return '<hive>USER'; }
 <hive>'USING'                              { return '<hive>USING'; }
+<hive>'VIEWS'                              { return '<hive>VIEWS'; }
 
 // Non-reserved Keywords
+<hive>'ABORT'                              { parser.determineCase(yytext); return '<hive>ABORT'; }
 <hive>'ADD'                                { return '<hive>ADD'; }
 <hive>'ADMIN'                              { return '<hive>ADMIN'; }
 <hive>'AFTER'                              { return '<hive>AFTER'; }
@@ -72,7 +79,6 @@
 <hive>'AVRO'                               { return '<hive>AVRO'; }
 <hive>'BUCKET'                             { return '<hive>BUCKET'; }
 <hive>'BUCKETS'                            { return '<hive>BUCKETS'; }
-<hive>'CACHE'                              { return '<hive>CACHE'; }
 <hive>'CASCADE'                            { return '<hive>CASCADE'; }
 <hive>'CHANGE'                             { return '<hive>CHANGE'; }
 <hive>'CLUSTER'                            { return '<hive>CLUSTER'; }
@@ -88,6 +94,7 @@
 <hive>'DATABASES'                          { return '<hive>DATABASES'; }
 <hive>'DAY'                                { return '<hive>DAY'; }
 <hive>'DAYOFWEEK'                          { return '<hive>DAYOFWEEK'; }
+<hive>'DBPROPERTIES'                       { return '<hive>DBPROPERTIES'; }
 <hive>'DEFERRED'                           { return '<hive>DEFERRED'; }
 <hive>'DEFINED'                            { return '<hive>DEFINED'; }
 <hive>'DELIMITED'                          { return '<hive>DELIMITED'; }
@@ -96,6 +103,7 @@
 <hive>'DIRECTORY'                          { this.begin('hdfs'); return '<hive>DIRECTORY'; }
 <hive>'DISABLE'                            { return '<hive>DISABLE'; }
 <hive>'DISTRIBUTE'                         { return '<hive>DISTRIBUTE'; }
+<hive>DOUBLE\s+PRECISION                   { return '<hive>DOUBLE_PRECISION'; }
 <hive>'ESCAPED'                            { return '<hive>ESCAPED'; }
 <hive>'ENABLE'                             { return '<hive>ENABLE'; }
 <hive>'EXCHANGE'                           { return '<hive>EXCHANGE'; }
@@ -117,6 +125,7 @@
 <hive>'INPUTFORMAT'                        { return '<hive>INPUTFORMAT'; }
 <hive>'ITEMS'                              { return '<hive>ITEMS'; }
 <hive>'JAR'                                { return '<hive>JAR'; }
+<hive>'KEY'                                { return '<hive>KEY'; }
 <hive>'KEYS'                               { return '<hive>KEYS'; }
 <hive>'LINES'                              { return '<hive>LINES'; }
 <hive>'LOAD'                               { parser.determineCase(yytext); return '<hive>LOAD'; }
@@ -127,13 +136,16 @@
 <hive>'MINUTE'                             { return '<hive>MINUTE'; }
 <hive>'MONTH'                              { return '<hive>MONTH'; }
 <hive>'MSCK'                               { return '<hive>MSCK'; }
+<hive>'NORELY'                             { return '<hive>NORELY'; }
 <hive>'NOSCAN'                             { return '<hive>NOSCAN'; }
+<hive>'NOVALIDATE'                         { return '<hive>NOVALIDATE'; }
 <hive>'NO_DROP'                            { return '<hive>NO_DROP'; }
 <hive>'OFFLINE'                            { return '<hive>OFFLINE'; }
 <hive>'ORC'                                { return '<hive>ORC'; }
 <hive>'OUTPUTFORMAT'                       { return '<hive>OUTPUTFORMAT'; }
 <hive>'OVERWRITE'                          { return '<hive>OVERWRITE'; }
 <hive>OVERWRITE\s+DIRECTORY                { this.begin('hdfs'); return '<hive>OVERWRITE_DIRECTORY'; }
+<hive>'OWNER'                              { return '<hive>OWNER'; }
 <hive>'PARQUET'                            { return '<hive>PARQUET'; }
 <hive>'PARTITIONED'                        { return '<hive>PARTITIONED'; }
 <hive>'PARTITIONS'                         { return '<hive>PARTITIONS'; }
@@ -143,6 +155,7 @@
 <hive>'RCFILE'                             { return '<hive>RCFILE'; }
 <hive>'REBUILD'                            { return '<hive>REBUILD'; }
 <hive>'RELOAD'                             { parser.determineCase(yytext); return '<hive>RELOAD'; }
+<hive>'RELY'                               { return '<hive>RELY'; }
 <hive>'REPAIR'                             { return '<hive>REPAIR'; }
 <hive>'REPLICATION'                        { return '<hive>REPLICATION'; }
 <hive>'RECOVER'                            { return '<hive>RECOVER'; }
@@ -168,7 +181,7 @@
 <hive>'STORED'                             { return '<hive>STORED'; }
 <hive>STORED\s+AS\s+DIRECTORIES            { return '<hive>STORED_AS_DIRECTORIES'; }
 <hive>'STRING'                             { return '<hive>STRING'; }
-<hive>'STRUCT'                             { return '<hive>STRUCT'; }
+<hive>'STRUCT'                             { return 'STRUCT'; }
 <hive>'TABLES'                             { return '<hive>TABLES'; }
 <hive>'TABLESAMPLE'                        { return '<hive>TABLESAMPLE'; }
 <hive>'TBLPROPERTIES'                      { return '<hive>TBLPROPERTIES'; }
@@ -182,6 +195,7 @@
 <hive>'UNIONTYPE'                          { return '<hive>UNIONTYPE'; }
 <hive>'USE'                                { parser.determineCase(yytext); return '<hive>USE'; }
 <hive>'VIEW'                               { return '<hive>VIEW'; }
+<hive>'WAIT'                               { return '<hive>WAIT'; }
 <hive>'WEEK'                               { return '<hive>WEEK'; }
 <hive>'WINDOW'                             { return '<hive>WINDOW'; }
 <hive>'YEAR'                               { return '<hive>YEAR'; }
@@ -214,6 +228,7 @@
 <impala>'EXTENDED'                         { return '<impala>EXTENDED'; }
 <impala>'FIELDS'                           { return '<impala>FIELDS'; }
 <impala>'FILEFORMAT'                       { return '<impala>FILEFORMAT'; }
+<impala>'FILES'                            { return '<impala>FILES'; }
 <impala>'FINALIZE_FN'                      { return '<impala>FINALIZE_FN'; }
 <impala>'FIRST'                            { return '<impala>FIRST'; }
 <impala>'FORMAT'                           { return '<impala>FORMAT'; }
@@ -222,12 +237,15 @@
 <impala>'FUNCTIONS'                        { return '<impala>FUNCTIONS'; }
 <impala>'GROUP'                            { return '<impala>GROUP'; }
 <impala>'HASH'                             { return '<impala>HASH'; }
+<impala>'ILIKE'                            { return '<impala>ILIKE'; }
 <impala>'INCREMENTAL'                      { return '<impala>INCREMENTAL'; }
 <impala>'INSERT'                           { parser.determineCase(yytext); return '<impala>INSERT'; }
 <impala>'INTERVAL'                         { return '<impala>INTERVAL'; }
+<impala>'INTERMEDIATE'                     { return '<impala>INTERMEDIATE'; }
 <impala>'INIT_FN'                          { return '<impala>INIT_FN'; }
 <impala>'INVALIDATE'                       { parser.determineCase(yytext); return '<impala>INVALIDATE'; }
 <impala>'INPATH'                           { this.begin('hdfs'); return '<impala>INPATH'; }
+<impala>'IREGEXP'                          { return '<impala>IREGEXP'; }
 <impala>'KEY'                              { return '<impala>KEY'; }
 <impala>'KUDU'                             { return '<impala>KUDU'; }
 <impala>'LAST'                             { return '<impala>LAST'; }
@@ -251,6 +269,7 @@
 <impala>'REAL'                             { return '<impala>REAL'; }
 <impala>'REFRESH'                          { parser.determineCase(yytext); return '<impala>REFRESH'; }
 <impala>'RENAME'                           { return '<impala>RENAME'; }
+<impala>'REPEATABLE'                       { return '<impala>REPEATABLE'; }
 <impala>'REPLACE'                          { return '<impala>REPLACE'; }
 <impala>'REPLICATION'                      { return '<impala>REPLICATION'; }
 <impala>'RESTRICT'                         { return '<impala>RESTRICT'; }
@@ -261,17 +280,20 @@
 <impala>'SCHEMAS'                          { return '<impala>SCHEMAS'; }
 <impala>'SERIALIZE_FN'                     { return '<impala>SERIALIZE_FN'; }
 <impala>'SERVER'                           { return '<impala>SERVER'; }
+<impala>'SORT'                             { return '<impala>SORT'; }
 <impala>'STATS'                            { return '<impala>STATS'; }
 <impala>'STORED'                           { return '<impala>STORED'; }
 <impala>'STRAIGHT_JOIN'                    { return '<impala>STRAIGHT_JOIN'; }
 <impala>'SYMBOL'                           { return '<impala>SYMBOL'; }
 <impala>'TABLE'                            { return '<impala>TABLE'; }
 <impala>'TABLES'                           { return '<impala>TABLES'; }
+<impala>'TABLESAMPLE'                      { return '<impala>TABLESAMPLE'; }
 <impala>'TBLPROPERTIES'                    { return '<impala>TBLPROPERTIES'; }
 <impala>'TERMINATED'                       { return '<impala>TERMINATED'; }
 <impala>'TEXTFILE'                         { return '<impala>TEXTFILE'; }
 <impala>'UNCACHED'                         { return '<impala>UNCACHED'; }
 <impala>'UPDATE_FN'                        { return '<impala>UPDATE_FN'; }
+<impala>'UPSERT'                           { parser.determineCase(yytext); return '<impala>UPSERT'; }
 <impala>'URI'                              { return '<impala>URI'; }
 <impala>'USING'                            { return '<impala>USING'; }
 <impala>PARTITION\s+VALUE\s                { return '<impala>PARTITION_VALUE'; }
@@ -279,15 +301,18 @@
 // Non-reserved Keywords
 <impala>'ANALYTIC'                         { return '<impala>ANALYTIC'; }
 <impala>'ANTI'                             { return '<impala>ANTI'; }
+<impala>'ARRAY'                            { return 'ARRAY'; }
 <impala>'BLOCK_SIZE'                       { return '<impala>BLOCK_SIZE'; }
 <impala>'COMPRESSION'                      { return '<impala>COMPRESSION'; }
 <impala>'CURRENT'                          { return '<impala>CURRENT'; }
 <impala>'DEFAULT'                          { return '<impala>DEFAULT'; }
 <impala>'ENCODING'                         { return '<impala>ENCODING'; }
 <impala>'GRANT'                            { return '<impala>GRANT'; }
+<impala>'MAP'                              { return 'MAP'; }
 <impala>'RECOVER'                          { return '<impala>RECOVER'; }
 <impala>'ROLE'                             { return '<impala>ROLE'; }
 <impala>'ROLES'                            { return '<impala>ROLES'; }
+<impala>'STRUCT'                           { return 'STRUCT'; }
 <impala>\[BROADCAST\]                      { return '<impala>BROADCAST'; }
 <impala>\[NOSHUFFLE\]                      { return '<impala>NOSHUFFLE'; }
 <impala>\[SHUFFLE\]                        { return '<impala>SHUFFLE'; }
@@ -317,6 +342,7 @@
 'DATABASE'                                 { return 'DATABASE'; }
 'DECIMAL'                                  { return 'DECIMAL'; }
 'DISTINCT'                                 { return 'DISTINCT'; }
+'DIV'                                      { return 'ARITHMETIC_OPERATOR'; }
 'DOUBLE'                                   { return 'DOUBLE'; }
 'DESC'                                     { return 'DESC'; }
 'DROP'                                     { parser.determineCase(yytext); return 'DROP'; }
@@ -429,6 +455,8 @@ ROW_NUMBER\s*\(                            { yy.lexer.unput('('); yytext = 'row_
 <impala>NTILE\s*\(                         { yy.lexer.unput('('); yytext = 'ntile'; parser.addFunctionLocation(yylloc, yytext); return 'ANALYTIC'; }
 <impala>PERCENT_RANK\s*\(                  { yy.lexer.unput('('); yytext = 'percent_rank'; parser.addFunctionLocation(yylloc, yytext); return 'ANALYTIC'; }
 
+<impala>SYSTEM\s*\(                        { yy.lexer.unput('('); yytext = 'system'; return '<impala>SYSTEM'; }
+
 [0-9]+                                     { return 'UNSIGNED_INTEGER'; }
 [0-9]+(?:[YSL]|BD)?                        { return 'UNSIGNED_INTEGER'; }
 [0-9]+E                                    { return 'UNSIGNED_INTEGER_E'; }
@@ -452,15 +480,6 @@ ROW_NUMBER\s*\(                            { yy.lexer.unput('('); yytext = 'row_
 '>='                                       { return 'COMPARISON_OPERATOR'; }
 '<>'                                       { return 'COMPARISON_OPERATOR'; }
 '<=>'                                      { return 'COMPARISON_OPERATOR'; }
-
-'-'                                        { return '-'; }
-'*'                                        { return '*'; }
-'+'                                        { return 'ARITHMETIC_OPERATOR'; }
-'/'                                        { return 'ARITHMETIC_OPERATOR'; }
-'%'                                        { return 'ARITHMETIC_OPERATOR'; }
-'|'                                        { return 'ARITHMETIC_OPERATOR'; }
-'^'                                        { return 'ARITHMETIC_OPERATOR'; }
-'&'                                        { return 'ARITHMETIC_OPERATOR'; }
 
 '-'                                        { return '-'; }
 '*'                                        { return '*'; }

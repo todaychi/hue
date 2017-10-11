@@ -21,6 +21,11 @@ REQUIRES_HADOOP = False
 ICON = "filebrowser/art/icon_filebrowser_48.png"
 MENU_INDEX = 20
 
+from aws.s3.s3fs import PERMISSION_ACTION_S3
+from azure.adls.webhdfs import PERMISSION_ACTION_ADLS
+
+
 PERMISSION_ACTIONS = (
-  ("s3_access", "Access to S3 from filebrowser and filepicker."),
+  (PERMISSION_ACTION_S3, "Access to S3 from filebrowser and filepicker."),
+  (PERMISSION_ACTION_ADLS, "Access to ADLS from filebrowser and filepicker.")
 )

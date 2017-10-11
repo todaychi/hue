@@ -178,7 +178,7 @@ except ImportError, e:
         <i class="fa fa-fw fa-spinner fa-spin"></i>
         <!-- /ko -->
       </a>
-      <ul class="dropdown-menu less-padding">
+      <ul class="dropdown-menu less-padding" style="z-index: 1040">
         <li>
           <a class="download" href="javascript:void(0)" data-bind="click: downloadCsv, event: { mouseover: function(){ window.onbeforeunload = null; }, mouseout: function() { window.onbeforeunload = $(window).data('beforeunload'); } }" title="${ _('Download first %s rows as CSV') % (hasattr(DOWNLOAD_ROW_LIMIT, 'get') and DOWNLOAD_ROW_LIMIT.get()) }">
             <i class="fa fa-fw fa-file-o"></i> ${ _('CSV') }
@@ -189,6 +189,11 @@ except ImportError, e:
             <i class="fa fa-fw fa-file-excel-o"></i> ${ _('Excel') }
           </a>
         </li>
+        <li>
+          <a data-bind="css: clipboardClass" title="${ _('Copy the displayed results to your clipboard') }">
+            <i class="fa fa-fw fa-clipboard"></i> ${ _('Clipboard') }
+          </a>
+        </li>
         % if ENABLE_SQL_INDEXER.get():
         <li>
           <a class="download" href="javascript:void(0)" data-bind="click: function() { saveTarget('search-index'); savePath('__hue__'); trySaveResults(); }" title="${ _('Explore result in a dashboard') }">
@@ -196,11 +201,6 @@ except ImportError, e:
           </a>
         </li>
         % endif
-        <li>
-          <a data-bind="css: clipboardClass" title="${ _('Copy the displayed results in your clipboard') }">
-            <i class="fa fa-fw fa-clipboard"></i> ${ _('Clipboard') }
-          </a>
-        </li>
         <li>
           <a class="download" href="javascript:void(0)" data-bind="click: function() { savePath(''); $('#saveResultsModal').modal('show'); }" title="${ _('Save the result in a file, a new table...') }">
             <i class="fa fa-fw fa-save"></i> ${ _('Save') }
@@ -259,7 +259,7 @@ except ImportError, e:
                   &nbsp;${ _('Table') }
                 </label>
                 <div data-bind="visible: saveTarget() == 'hive-table'" class="inline">
-                  <input data-bind="hivechooser: savePath, skipColumns: true, apiHelperUser: '${ user }', apiHelperType: 'hive'" type="text" name="target_table" class="input-xlarge margin-left-10"  pattern="^([a-zA-Z0-9_]+\.)?[a-zA-Z0-9_]*$" title="${ _('Only alphanumeric and underscore characters') }" placeholder="${_('Table name or <database>.<table>')}">
+                  <input data-bind="hivechooser: savePath, valueUpdate:'afterkeydown', skipColumns: true, apiHelperUser: '${ user }', apiHelperType: 'hive'" type="text" name="target_table" class="input-xlarge margin-left-10"  pattern="^([a-zA-Z0-9_]+\.)?[a-zA-Z0-9_]*$" title="${ _('Only alphanumeric and underscore characters') }" placeholder="${_('Table name or <database>.<table>')}">
                 </div>
               </div>
             </div>
@@ -355,6 +355,10 @@ except ImportError, e:
             if (self.snippet.result && self.snippet.result.data()) {
               var data = self.snippet.result.data();
               var result = '';
+              self.snippet.result.meta().forEach(function (row) {
+                result += hueUtils.html2text(row.name) + '\t';
+              });
+              result += '\n';
               data.forEach(function (row) {
                 for (var i = 1; i < row.length; i++) { // skip the row number column
                   result += hueUtils.html2text(row[i]) + '\t';
@@ -370,7 +374,7 @@ except ImportError, e:
         });
 
         clipboard.on('success', function (e) {
-          $.jHueNotify.info(CopyToClipboardGlobals.i18n.SUCCESS)
+          $.jHueNotify.info(self.snippet.result.data().length + ' ' + CopyToClipboardGlobals.i18n.SUCCESS)
           e.clearSelection();
         });
 
@@ -392,17 +396,18 @@ except ImportError, e:
             destination: ko.mapping.toJSON(self.savePath()),
             overwrite: ko.mapping.toJSON(self.saveOverwrite()),
             is_embedded: ko.mapping.toJSON(IS_HUE_4),
+            start_time: ko.mapping.toJSON((new Date()).getTime())
           },
           function(resp) {
             if (resp.status == 0) {
               if (IS_HUE_4) {
                 $(".modal-backdrop").remove();
                 if (self.saveTarget() == 'hdfs-file' || (self.saveTarget() == 'search-index' && typeof resp.rowcount !== 'undefined')) {
-                  $("#saveResultsModal").hide();
+                  $("#saveResultsModal").modal("hide");
                   huePubSub.publish('open.link', resp.watch_url);
                 } else {
                   if (resp.history_uuid) {
-                    $("#saveResultsModal").hide();
+                    $("#saveResultsModal").modal("hide");
                     huePubSub.publish('notebook.task.submitted', resp.history_uuid);
                   } else if (resp && resp.message) {
                     $(document).trigger("error", resp.message);

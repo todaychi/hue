@@ -45,6 +45,7 @@ var AssistDbSource = (function () {
   function AssistDbSource (options) {
 
     var self = this;
+    self.isSource = true;
     self.i18n = options.i18n;
     self.navigationSettings = options.navigationSettings;
     self.apiHelper = ApiHelper.getInstance();
@@ -54,7 +55,6 @@ var AssistDbSource = (function () {
     self.hasErrors = ko.observable(false);
     self.simpleStyles = ko.observable(false);
     self.isSearchVisible = ko.observable(false);
-    self.editingSearch = ko.observable(false);
     self.sortFunctions = sortFunctions;
 
     self.highlight = ko.observable(false);
@@ -73,11 +73,11 @@ var AssistDbSource = (function () {
     });
 
     self.filter = {
-      query: ko.observable("").extend({ rateLimit: 150 })
+      querySpec: ko.observable({})
     };
 
     self.filterActive = ko.pureComputed(function () {
-      return self.filter.query().length !== 0;
+      return self.filter.querySpec() && self.filter.querySpec().query !== '';
     });
 
     var storageSearchVisible = $.totalStorage(self.sourceType + ".assist.searchVisible");
@@ -94,12 +94,12 @@ var AssistDbSource = (function () {
     });
 
     self.filteredEntries = ko.pureComputed(function () {
-      if (self.filter.query().length === 0) {
+      if (!self.filter.querySpec() || typeof self.filter.querySpec().query === 'undefined' || !self.filter.querySpec().query) {
         return self.databases();
       }
       var result = [];
       $.each(self.databases(), function (index, database) {
-        if (database.definition.name.toLowerCase().indexOf(self.filter.query().toLowerCase()) > -1) {
+        if (database.definition.name.toLowerCase().indexOf(self.filter.querySpec().query.toLowerCase()) > -1) {
           result.push(database);
         }
       });
@@ -184,7 +184,7 @@ var AssistDbSource = (function () {
     self.loading = ko.observable(false);
     var dbIndex = {};
     var nestedFilter = {
-      query: ko.observable("").extend({ rateLimit: { timeout: 250, method: 'notifyWhenChangesStop' } }),
+      querySpec: ko.observable({}),
       showTables: ko.observable(true),
       showViews: ko.observable(true),
       activeEditorTables: ko.observableArray([])
@@ -303,8 +303,12 @@ var AssistDbSource = (function () {
       self.initDatabases();
     };
 
+    huePubSub.subscribe('assist.invalidate.on.refresh', function () {
+      self.invalidateOnRefresh('invalidate');
+    });
+
     huePubSub.subscribe('assist.db.refresh', function (options) {
-      if (options.sourceTypes.indexOf(self.sourceType) !== -1) {
+      if (typeof options.sourceTypes === 'undefined' || options.sourceTypes.indexOf(self.sourceType) !== -1) {
         window.setTimeout(function () {
           self.reload(options.allCacheTypes);
         }, 0);
@@ -369,7 +373,6 @@ var AssistDbSource = (function () {
   AssistDbSource.prototype.toggleSearch = function () {
     var self = this;
     self.isSearchVisible(!self.isSearchVisible());
-    self.editingSearch(self.isSearchVisible());
   };
 
   AssistDbSource.prototype.triggerRefresh = function (data, event) {

@@ -16,10 +16,12 @@
 
 DataDefinition
  : DropStatement
+ | HiveAbortStatement
  ;
 
 DataDefinition_EDIT
  : DropStatement_EDIT
+ | HiveAbortStatement_EDIT
  ;
 
 DataManipulation
@@ -155,6 +157,7 @@ DropImpalaFunction_EDIT
 
 DropHiveFunction
  : 'DROP' '<hive>FUNCTION' OptionalIfExists SchemaQualifiedIdentifier
+ | 'DROP' '<hive>TEMPORARY' '<hive>FUNCTION' OptionalIfExists RegularIdentifier
  ;
 
 DropHiveFunction_EDIT
@@ -173,6 +176,13 @@ DropHiveFunction_EDIT
  | 'DROP' '<hive>FUNCTION' OptionalIfExists_EDIT
  | 'DROP' '<hive>FUNCTION' OptionalIfExists_EDIT SchemaQualifiedIdentifier
  | 'DROP' '<hive>FUNCTION' OptionalIfExists SchemaQualifiedIdentifier_EDIT
+ | 'DROP' '<hive>TEMPORARY' '<hive>FUNCTION' OptionalIfExists 'CURSOR'
+   {
+     if (!$4) {
+       parser.suggestKeywords(['IF EXISTS']);
+     }
+   }
+ | 'DROP' '<hive>TEMPORARY' '<hive>FUNCTION' OptionalIfExists_EDIT
  ;
 
 DropRoleStatement
@@ -303,7 +313,7 @@ DropMacroStatement
 DropMacroStatement_EDIT
  : 'DROP' '<hive>TEMPORARY' 'CURSOR'
    {
-     parser.suggestKeywords(['MACRO']);
+     parser.suggestKeywords(['FUNCTION', 'MACRO']);
    }
  | 'DROP' '<hive>TEMPORARY' '<hive>MACRO' OptionalIfExists 'CURSOR'
    {
@@ -351,9 +361,9 @@ DropViewStatement_EDIT
  ;
 
 TruncateTableStatement
- : 'TRUNCATE' AnyTable SchemaQualifiedTableIdentifier OptionalPartitionSpec
+ : 'TRUNCATE' AnyTable OptionalIfExists SchemaQualifiedTableIdentifier OptionalPartitionSpec
    {
-     parser.addTablePrimary($3);
+     parser.addTablePrimary($4);
    }
  ;
 
@@ -362,23 +372,35 @@ TruncateTableStatement_EDIT
    {
      parser.suggestKeywords(['TABLE']);
    }
- | 'TRUNCATE' AnyTable 'CURSOR' OptionalPartitionSpec
+ | 'TRUNCATE' AnyTable OptionalIfExists 'CURSOR' OptionalPartitionSpec
    {
      parser.suggestTables();
      parser.suggestDatabases({ appendDot: true });
+     if (parser.isImpala() && !$3) {
+       parser.suggestKeywords(['IF EXISTS']);
+     }
    }
- | 'TRUNCATE' AnyTable SchemaQualifiedTableIdentifier_EDIT OptionalPartitionSpec
- | 'TRUNCATE' AnyTable SchemaQualifiedTableIdentifier OptionalPartitionSpec 'CURSOR'
+ | 'TRUNCATE' AnyTable OptionalIfExists_EDIT OptionalPartitionSpec
+ | 'TRUNCATE' AnyTable OptionalIfExists SchemaQualifiedTableIdentifier_EDIT OptionalPartitionSpec
+ | 'TRUNCATE' AnyTable OptionalIfExists SchemaQualifiedTableIdentifier OptionalPartitionSpec 'CURSOR'
    {
-     parser.addTablePrimary($3);
-     if (parser.isHive() && !$4) {
+     parser.addTablePrimary($4);
+     if (parser.isHive() && !$5) {
        parser.suggestKeywords(['PARTITION']);
      }
    }
- | 'TRUNCATE' AnyTable SchemaQualifiedTableIdentifier OptionalPartitionSpec_EDIT
+ | 'TRUNCATE' AnyTable OptionalIfExists SchemaQualifiedTableIdentifier OptionalPartitionSpec_EDIT
    {
-     parser.addTablePrimary($3);
+     parser.addTablePrimary($4);
    }
+ | 'TRUNCATE' AnyTable OptionalIfExists 'CURSOR' SchemaQualifiedTableIdentifier OptionalPartitionSpec
+   {
+     parser.addTablePrimary($4);
+     if (parser.isImpala() && !$3) {
+       parser.suggestKeywords(['IF EXISTS']);
+     }
+   }
+ | 'TRUNCATE' AnyTable OptionalIfExists_EDIT SchemaQualifiedTableIdentifier OptionalPartitionSpec
  ;
 
 HiveDeleteStatement
@@ -413,38 +435,70 @@ HiveDeleteStatement_EDIT
  ;
 
 ImpalaDeleteStatement
- : '<impala>DELETE' 'FROM' TableReference OptionalWhereClause
+ : '<impala>DELETE' OptionalImpalaDeleteTableRef 'FROM' TableReference OptionalWhereClause
  ;
 
 ImpalaDeleteStatement_EDIT
- : '<impala>DELETE' 'CURSOR'
+ : '<impala>DELETE' OptionalImpalaDeleteTableRef 'CURSOR'
    {
      parser.suggestKeywords(['FROM']);
+     if (parser.isImpala() && !$2) {
+       parser.suggestTables();
+       parser.suggestDatabases({ appendDot: true });
+     }
    }
- | '<impala>DELETE' 'FROM' 'CURSOR'
+ | '<impala>DELETE' ImpalaDeleteTableRef_EDIT
+ | '<impala>DELETE' OptionalImpalaDeleteTableRef 'FROM' 'CURSOR'
    {
      parser.suggestTables();
      parser.suggestDatabases({ appendDot: true });
    }
- | '<impala>DELETE' 'FROM' TableReference 'CURSOR' OptionalWhereClause
+ | '<impala>DELETE' OptionalImpalaDeleteTableRef 'FROM' TableReference 'CURSOR' OptionalWhereClause
    {
      var keywords = [{ value: 'FULL JOIN', weight: 1 }, { value: 'FULL OUTER JOIN', weight: 1 }, { value: 'JOIN', weight: 1 }, { value: 'LEFT JOIN', weight: 1 }, { value: 'LEFT OUTER JOIN', weight: 1 }, { value: 'RIGHT JOIN', weight: 1 }, { value: 'RIGHT OUTER JOIN', weight: 1 }, { value: 'INNER JOIN', weight: 1 },  { value: 'LEFT ANTI JOIN', weight: 1 }, { value: 'LEFT SEMI JOIN', weight: 1 }, { value: 'RIGHT ANTI JOIN', weight: 1 }, { value: 'RIGHT SEMI JOIN', weight: 1 }];
-     if (!$5) {
+     if (!$6) {
        keywords.push({ value: 'WHERE', weight: 3 });
      }
-     if ($3.suggestJoinConditions) {
-       parser.suggestJoinConditions($3.suggestJoinConditions);
+     if ($4.suggestJoinConditions) {
+       parser.suggestJoinConditions($4.suggestJoinConditions);
      }
-     if ($3.suggestJoins) {
-       parser.suggestJoins($3.suggestJoins);
+     if ($4.suggestJoins) {
+       parser.suggestJoins($4.suggestJoins);
      }
-     if ($3.suggestKeywords) {
-       keywords = keywords.concat(parser.createWeightedKeywords($3.suggestKeywords, 2));
+     if ($4.suggestKeywords) {
+       keywords = keywords.concat(parser.createWeightedKeywords($4.suggestKeywords, 2));
      }
      if (keywords.length > 0) {
        parser.suggestKeywords(keywords);
      }
    }
- | '<impala>DELETE' 'FROM' TableReference_EDIT OptionalWhereClause
- | '<impala>DELETE' 'FROM' TableReference WhereClause_EDIT
+ | '<impala>DELETE' ImpalaDeleteTableRef_EDIT 'FROM'
+ | '<impala>DELETE' ImpalaDeleteTableRef_EDIT 'FROM' TableReference OptionalWhereClause
+ | '<impala>DELETE' OptionalImpalaDeleteTableRef 'FROM' TableReference_EDIT OptionalWhereClause
+ | '<impala>DELETE' OptionalImpalaDeleteTableRef 'FROM' TableReference WhereClause_EDIT
+ ;
+
+OptionalImpalaDeleteTableRef
+ :
+ | TableReference
+ ;
+
+ImpalaDeleteTableRef_EDIT
+ : TableReference_EDIT
+ ;
+
+HiveAbortStatement
+ : '<hive>ABORT' '<hive>TRANSACTIONS' TransactionIdList
+ ;
+
+HiveAbortStatement_EDIT
+ : '<hive>ABORT' 'CURSOR'
+   {
+     parser.suggestKeywords(['TRANSACTIONS']);
+   }
+ ;
+
+TransactionIdList
+ : UnsignedNumericLiteral
+ | TransactionIdList ',' UnsignedNumericLiteral
  ;

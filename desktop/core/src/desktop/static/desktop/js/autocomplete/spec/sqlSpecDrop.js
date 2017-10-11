@@ -26,17 +26,6 @@
 
     var assertAutoComplete = SqlTestUtils.assertAutocomplete;
 
-    it('should suggest keywords for "|"', function() {
-      assertAutoComplete({
-        beforeCursor: '',
-        afterCursor: '',
-        containsKeywords: ['DROP'],
-        expectedResult: {
-          lowerCase: false
-        }
-      });
-    });
-
     it('should suggest keywords for "DROP |"', function() {
       assertAutoComplete({
         beforeCursor: 'DROP ',
@@ -50,6 +39,31 @@
     });
 
     describe('hive specific', function () {
+
+      it('should suggest keywords for "|"', function() {
+        assertAutoComplete({
+          beforeCursor: '',
+          afterCursor: '',
+          dialect: 'hive',
+          containsKeywords: ['ABORT'],
+          expectedResult: {
+            lowerCase: false
+          }
+        });
+      });
+
+      it('should suggest keywords for "ABORT |"', function () {
+        assertAutoComplete({
+          beforeCursor: 'ABORT ',
+          afterCursor: '',
+          dialect: 'hive',
+          expectedResult: {
+            lowerCase: false,
+            suggestKeywords: ['TRANSACTIONS']
+          }
+        });
+      });
+
       it('should suggest keywords for "DROP |"', function () {
         assertAutoComplete({
           beforeCursor: 'DROP ',
@@ -230,6 +244,45 @@
           });
         });
 
+        it('should handle "DELETE t1 FROM t1 JOIN t2 ON t1.x = t2.x;|"', function() {
+          assertAutoComplete({
+            beforeCursor: 'DELETE t1 FROM t1 JOIN t2 ON t1.x = t2.x;',
+            afterCursor: '',
+            dialect: 'impala',
+            noErrors:true,
+            containsKeywords: ['SELECT'],
+            expectedResult: {
+              lowerCase: false
+            }
+          });
+        });
+
+        it('should handle "DELETE t2 FROM non_kudu_table t1 JOIN kudu_table t2 ON t1.x = t2.x;|"', function() {
+          assertAutoComplete({
+            beforeCursor: 'DELETE t2 FROM non_kudu_table t1 JOIN kudu_table t2 ON t1.x = t2.x;',
+            afterCursor: '',
+            dialect: 'impala',
+            noErrors:true,
+            containsKeywords: ['SELECT'],
+            expectedResult: {
+              lowerCase: false
+            }
+          });
+        });
+
+        it('should handle "DELETE t1 FROM t1 JOIN t2 ON t1.x = t2.x WHERE t1.y = FALSE and t2.z > 100;|"', function() {
+          assertAutoComplete({
+            beforeCursor: 'DELETE t1 FROM t1 JOIN t2 ON t1.x = t2.x WHERE t1.y = FALSE and t2.z > 100;',
+            afterCursor: '',
+            dialect: 'impala',
+            noErrors:true,
+            containsKeywords: ['SELECT'],
+            expectedResult: {
+              lowerCase: false
+            }
+          });
+        });
+
         it('should handle "DELETE FROM boo.baa WHERE id < 1 AND bla IN (SELECT * FROM boo);|"', function() {
           assertAutoComplete({
             beforeCursor: 'DELETE FROM boo.baa WHERE id < 1 AND bla IN (SELECT * FROM boo);',
@@ -277,7 +330,9 @@
             noErrors:true,
             expectedResult: {
               lowerCase: false,
-              suggestKeywords: ['FROM']
+              suggestKeywords: ['FROM'],
+              suggestTables: {},
+              suggestDatabases: { appendDot: true }
             }
           });
         });
@@ -309,6 +364,19 @@
           });
         });
 
+        it('should suggest tables for "DELETE t1 FROM db.|"', function() {
+          assertAutoComplete({
+            beforeCursor: 'DELETE FROM db.',
+            afterCursor: '',
+            dialect: 'impala',
+            noErrors:true,
+            expectedResult: {
+              lowerCase: false,
+              suggestTables: { identifierChain: [{ name: 'db' }]}
+            }
+          });
+        });
+
         it('should suggest keywords for "DELETE FROM boo.baa |"', function() {
           assertAutoComplete({
             beforeCursor: 'DELETE FROM boo.baa ',
@@ -319,6 +387,21 @@
             expectedResult: {
               lowerCase: false,
               suggestJoins: { prependJoin: true, tables: [{ identifierChain: [{ name: 'boo' }, { name: 'baa' }] }] }
+            }
+          });
+        });
+
+        it('should suggst tables for "DELETE t1 FROM tbl t1 JOIN |"', function() {
+          assertAutoComplete({
+            beforeCursor: 'DELETE t1 FROM tbl t1 JOIN ',
+            afterCursor: '',
+            dialect: 'impala',
+            expectedResult: {
+              lowerCase: false,
+              suggestKeywords: ['[BROADCAST]', '[SHUFFLE]'],
+              suggestJoins: { prependJoin: false, joinType: 'JOIN', tables: [{ identifierChain: [{ name: 'tbl' }], alias: 't1' }] },
+              suggestTables: {  },
+              suggestDatabases: { appendDot: true }
             }
           });
         });
@@ -943,7 +1026,7 @@
           dialect: 'hive',
           expectedResult: {
             lowerCase: false,
-            suggestKeywords: ['MACRO']
+            suggestKeywords: ['FUNCTION', 'MACRO']
           }
         });
       });
@@ -963,6 +1046,32 @@
       it('should suggest keywords for "DROP TEMPORARY MACRO IF |', function () {
         assertAutoComplete({
           beforeCursor: 'DROP TEMPORARY MACRO IF ',
+          afterCursor: '',
+          dialect: 'hive',
+          expectedResult: {
+            lowerCase: false,
+            suggestKeywords: ['EXISTS']
+          }
+        });
+      });
+    });
+
+    describe('DROP TEMPORARY FUNCTION', function () {
+      it('should suggest keywords for "DROP TEMPORARY FUNCTION |', function () {
+        assertAutoComplete({
+          beforeCursor: 'DROP TEMPORARY FUNCTION ',
+          afterCursor: '',
+          dialect: 'hive',
+          expectedResult: {
+            lowerCase: false,
+            suggestKeywords: ['IF EXISTS']
+          }
+        });
+      });
+
+      it('should suggest keywords for "DROP TEMPORARY FUNCTION IF |', function () {
+        assertAutoComplete({
+          beforeCursor: 'DROP TEMPORARY FUNCTION IF ',
           afterCursor: '',
           dialect: 'hive',
           expectedResult: {
@@ -1127,6 +1236,72 @@
           });
         });
       });
+
+      describe('Impala specific', function () {
+        it('should handle "TRUNCATE TABLE IF EXISTS baa.boo;"', function() {
+          assertAutoComplete({
+            beforeCursor: 'TRUNCATE TABLE IF EXISTS baa.boo;',
+            afterCursor: '',
+            dialect: 'impala',
+            containsKeywords: ['SELECT'],
+            noErrors: true,
+            expectedResult: {
+              lowerCase: false
+            }
+          });
+        });
+
+        it('should suggest tables for "TRUNCATE TABLE |"', function() {
+          assertAutoComplete({
+            beforeCursor: 'TRUNCATE TABLE ',
+            afterCursor: '',
+            dialect: 'impala',
+            expectedResult: {
+              lowerCase: false,
+              suggestTables: {},
+              suggestDatabases: { appendDot: true },
+              suggestKeywords: ['IF EXISTS']
+            }
+          });
+        });
+
+        it('should suggest keywords for "TRUNCATE TABLE IF |"', function() {
+          assertAutoComplete({
+            beforeCursor: 'TRUNCATE TABLE IF ',
+            afterCursor: '',
+            dialect: 'impala',
+            expectedResult: {
+              lowerCase: false,
+              suggestKeywords: ['EXISTS']
+            }
+          });
+        });
+
+        it('should suggest tables for "TRUNCATE TABLE IF EXISTS |"', function() {
+          assertAutoComplete({
+            beforeCursor: 'TRUNCATE TABLE IF EXISTS ',
+            afterCursor: '',
+            dialect: 'impala',
+            expectedResult: {
+              lowerCase: false,
+              suggestTables: {},
+              suggestDatabases: { appendDot: true }
+            }
+          });
+        });
+
+        it('should suggest keywords for "TRUNCATE TABLE | boo"', function() {
+          assertAutoComplete({
+            beforeCursor: 'TRUNCATE TABLE ',
+            afterCursor: ' boo',
+            dialect: 'impala',
+            expectedResult: {
+              lowerCase: false,
+              suggestKeywords: ['IF EXISTS']
+            }
+          });
+        });
+      })
     })
   });
 })();

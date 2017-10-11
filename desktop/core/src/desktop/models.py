@@ -42,6 +42,7 @@ from django.utils.translation import ugettext as _, ugettext_lazy as _t
 from settings import HUE_DESKTOP_VERSION
 
 from aws.conf import is_enabled as is_s3_enabled, has_s3_access
+from azure.conf import is_adls_enabled, has_adls_access
 from dashboard.conf import get_engines
 from notebook.conf import SHOW_NOTEBOOKS, get_ordered_interpreters
 
@@ -51,6 +52,7 @@ from desktop.lib.i18n import force_unicode
 from desktop.lib.exceptions_renderable import PopupException
 from desktop.lib.paths import get_run_root
 from desktop.redaction import global_redaction_engine
+from desktop.settings import DOCUMENT2_SEARCH_MAX_LENGTH
 
 
 LOG = logging.getLogger(__name__)
@@ -923,7 +925,7 @@ class Document2QueryMixin(object):
     """
     documents = self
 
-    if types and isinstance(types, list):
+    if types and isinstance(types, list) and types[0] != 'all':
       documents = documents.filter(type__in=types)
 
     if search_text:
@@ -1209,6 +1211,9 @@ class Document2(models.Model):
 
     # Redact query if needed
     self._redact_query()
+
+    if self.search:
+      self.search = self.search[:DOCUMENT2_SEARCH_MAX_LENGTH]
 
     super(Document2, self).save(*args, **kwargs)
 
@@ -1638,17 +1643,6 @@ class ClusterConfig():
   def _get_editor(self):
     interpreters = []
 
-    if SHOW_NOTEBOOKS.get() and (self.cluster_type not in (DATAENG, IMPALAUI)):
-      interpreters.append({
-        'name': 'notebook',
-        'type': 'notebook',
-        'displayName': 'Notebook',
-        'buttonName': _('Notebook'),
-        'tooltip': _('Notebook'),
-        'page': '/notebook',
-        'is_sql': False
-      })
-
     _interpreters = get_ordered_interpreters(self.user)
     if self.cluster_type == DATAENG:
       _interpreters = [interpreter for interpreter in _interpreters if interpreter['type'] in ('hive', 'spark2', 'mapreduce')]
@@ -1664,6 +1658,21 @@ class ClusterConfig():
         'tooltip': _('%s Query') % interpreter['type'].title(),
         'page': '/editor/?type=%(type)s' % interpreter,
         'is_sql': interpreter['is_sql']
+      })
+
+    if SHOW_NOTEBOOKS.get() and (self.cluster_type not in (DATAENG, IMPALAUI)):
+      try:
+        first_non_sql_index = [interpreter['is_sql'] for interpreter in interpreters].index(False)
+      except ValueError:
+        first_non_sql_index = 0
+      interpreters.insert(first_non_sql_index, {
+        'name': 'notebook',
+        'type': 'notebook',
+        'displayName': 'Notebook',
+        'buttonName': _('Notebook'),
+        'tooltip': _('Notebook'),
+        'page': '/notebook',
+        'is_sql': False
       })
 
     if interpreters:
@@ -1694,7 +1703,7 @@ class ClusterConfig():
             'page': '/dashboard/new_search?engine=%(type)s' % interpreter,
             'tooltip': _('%s Dashboard') % interpreter['type'].title()
           } for interpreter in interpreters],
-        'page': '/dashboard/new_search'
+        'page': '/dashboard/new_search?engine=%(type)s' % interpreters[0]
       }
     else:
       return None
@@ -1718,6 +1727,15 @@ class ClusterConfig():
         'buttonName': _('Browse'),
         'tooltip': _('S3'),
         'page': '/filebrowser/view=S3A://'
+      })
+
+    if is_adls_enabled() and has_adls_access(self.user):
+      interpreters.append({
+        'type': 'adls',
+        'displayName': _('ADLS'),
+        'buttonName': _('Browse'),
+        'tooltip': _('ADLS'),
+        'page': '/filebrowser/view=adl:/'
       })
 
     if 'metastore' in self.apps:

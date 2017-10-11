@@ -216,7 +216,7 @@ from metadata.conf import has_optimizer, OPTIMIZER
     var CopyToClipboardGlobals = {
       i18n: {
         ERROR: "${ _('Error while copying results.') }",
-        SUCCESS: "${ _('Results copied successfully to the clipboard') }",
+        SUCCESS: "${ _('result(s) copied to the clipboard') }",
       }
     }
 
@@ -522,14 +522,20 @@ from metadata.conf import has_optimizer, OPTIMIZER
 
   $(document).ready(function () {
 
+    if (window.performance && window.performance.navigation && window.performance.navigation.type === 1) {
+      hueAnalytics.convert('hue', 'pageReloaded' + window.location.pathname);
+    }
+
     huePubSub.subscribe('table.row.dblclick', function(data){
       var $el = $(data.table);
       var $t = $('#rowDetailsModal').find('table');
       $t.html('');
       var html = '';
       $el.find('thead th').each(function (colIdx, col) {
-        if (colIdx > 0){
-          html += '<tr><th width="10%">' + $(col).text() + '</th><td>' + $el.data('data')[data.idx][colIdx] + '</td></tr>';
+        if (colIdx > 0) {
+          var value = $el.data('data')[data.idx][colIdx];
+          var link = typeof value == 'string' && value.match(/^https?:\/\//i) ? '<a href="' + escapeOutput(value) + '" target="_blank">' + value + ' <i class="fa fa-external-link"></i></a>' : value;
+          html += '<tr><th width="10%">' + $(col).text() + '</th><td>' + link + '</td></tr>';
         }
       });
       $t.html(html);
@@ -538,6 +544,7 @@ from metadata.conf import has_optimizer, OPTIMIZER
 
     $('#rowDetailsModal').on('shown', function () {
       $('.modal-backdrop').css('z-index', '1070');
+      $('#rowDetailsModal .modal-body').scrollTop(0);
     });
 
     if ($.fn.editableform) {

@@ -453,12 +453,12 @@ from desktop.views import _ko
 
   <script type="text/html" id="hue-job-browser-links-template">
     <div class="btn-group pull-right">
-      <button class="btn btn-flat" style="padding-right: 2px" title="${_('Job browser')}" data-bind="hueLink: '/jobbrowser#!jobs', click: function(){ huePubSub.publish('hide.jobs.panel'); }">
+      <a class="btn btn-flat" style="padding-right: 4px" title="${_('Job browser')}" data-bind="hueLink: '/jobbrowser#!jobs', click: function(){ huePubSub.publish('hide.jobs.panel'); }">
         <span>${ _('Jobs') }</span>
-      </button>
-      <button class="btn btn-flat btn-toggle-jobs-panel" title="${_('Mini job browser')}" data-bind="click: function() { huePubSub.publish('toggle.jobs.panel'); }, style: {'paddingLeft': jobCount() > 0 ? '0': '4px'}">
+      </a>
+      <button class="btn btn-flat btn-toggle-jobs-panel" title="${_('Jobs preview')}" data-bind="click: function() { huePubSub.publish('toggle.jobs.panel'); }, style: {'paddingLeft': jobCount() > 0 ? '0': '4px'}">
         <span class="jobs-badge" data-bind="visible: jobCount() > 0, text: jobCount"></span>
-        <i class="fa fa-sliders"></i>
+        <i class="fa fa-tasks"></i>
       </button>
     </div>
   </script>
@@ -474,12 +474,12 @@ from desktop.views import _ko
           $('#jobsPanel').hide();
         });
 
-        huePubSub.subscribe('show.jobs.panel', function (id) {
+        huePubSub.subscribe('show.jobs.panel', function (section) {
           huePubSub.publish('hide.history.panel');
           $('#jobsPanel').show();
-          huePubSub.publish('mini.jb.navigate');
-          if (id) {
-            huePubSub.publish('mini.jb.open.job', id);
+          huePubSub.publish('mini.jb.navigate', section && section.interface ? section.interface : 'jobs');
+          if (section && section.id) {
+            huePubSub.publish('mini.jb.open.job', section.id);
           }
         });
 
@@ -492,17 +492,19 @@ from desktop.views import _ko
           }
         });
 
-        self.jobCount = ko.observable(0);
+        self.jobCounts = ko.observable({'yarn': 0, 'schedules': 0});
+        self.jobCount = ko.pureComputed(function() {
+          var total = 0;
+          Object.keys(self.jobCounts()).forEach(function (value) {
+            total += self.jobCounts()[value];
+          });
+          return total;
+        });
         self.onePageViewModel = params.onePageViewModel;
 
-        var lastJobBrowserRequest = null;
-
-        var checkJobBrowserStatus = function() {
-          if (lastJobBrowserRequest !== null && lastJobBrowserRequest.readyState < 4) {
-            return;
-          }
-          window.clearTimeout(checkJobBrowserStatusIdx);
-          lastJobBrowserRequest = $.post("/jobbrowser/jobs/", {
+        var lastYarnBrowserRequest = null;
+        var checkYarnBrowserStatus = function() {
+          return $.post("/jobbrowser/jobs/", {
               "format": "json",
               "state": "running",
               "user": "${user.username}"
@@ -510,13 +512,44 @@ from desktop.views import _ko
             function(data) {
               if (data != null && data.jobs != null) {
                 huePubSub.publish('jobbrowser.data', data.jobs);
-                self.jobCount(data.jobs.length);
+                self.jobCounts()['yarn'] = data.jobs.length;
+                self.jobCounts.valueHasMutated();
               }
-              checkJobBrowserStatusIdx = window.setTimeout(checkJobBrowserStatus, JB_CHECK_INTERVAL_IN_MILLIS);
-            }).fail(function () {
+          })
+        };
+        var lastScheduleBrowserRequest = null;
+        var checkScheduleBrowserStatus = function() {
+          return $.post("/jobbrowser/api/jobs", {
+              interface: ko.mapping.toJSON("schedules"),
+              filters: ko.mapping.toJSON([
+                  {"text": "user:${user.username}"},
+                  {"time": {"time_value": 7, "time_unit": "days"}},
+                  {"states": ["running"]},
+                  {"pagination": {"page": 1, "offset": 1, "limit": 1}}
+              ])
+            },
+            function(data) {
+              if (data != null && data.total != null) {
+                huePubSub.publish('jobbrowser.schedule.data', data.apps);
+                self.jobCounts()['schedules'] = data.total;
+                self.jobCounts.valueHasMutated();
+              }
+          })
+        };
+
+        var checkJobBrowserStatus = function() {
+          lastYarnBrowserRequest = checkYarnBrowserStatus();
+          lastScheduleBrowserRequest = checkScheduleBrowserStatus();
+
+          $.when.apply($, [lastYarnBrowserRequest, lastScheduleBrowserRequest])
+          .done(function () {
+            checkJobBrowserStatusIdx = window.setTimeout(checkJobBrowserStatus, JB_CHECK_INTERVAL_IN_MILLIS);
+           })
+          .fail(function () {
             window.clearTimeout(checkJobBrowserStatusIdx);
           });
         };
+
 
         // Load the mini jobbrowser
         $.ajax({
@@ -533,7 +566,8 @@ from desktop.views import _ko
 
         var checkJobBrowserStatusIdx = window.setTimeout(checkJobBrowserStatus, 10);
 
-        huePubSub.subscribe('check.job.browser', checkJobBrowserStatus);
+        huePubSub.subscribe('check.job.browser', checkYarnBrowserStatus);
+        huePubSub.subscribe('check.schedules.browser', checkScheduleBrowserStatus);
       };
 
       ko.components.register('hue-job-browser-links', {
@@ -612,30 +646,236 @@ from desktop.views import _ko
     })();
   </script>
 
-  <script type="text/html" id="search-document-context-template">
-    <div data-bind="with: data" style="width: 100%;">
-      <div style="width:100%; text-align: center; margin-top: 40px; font-size: 140px; color: #787878;" data-bind="template: { name: 'document-icon-template', data: { document: { isDirectory: doc_type === 'directory', definition: function() { return { type: doc_type } } } } }"></div>
-      <div style="width: 100%; margin-top: 20px; text-align:center">
-        <a style="font-size: 20px;" href="javscript:void(0)" data-bind="text: hue_name, hueLink: link, click: function () { $parents[1].close(); }"></a>
-        <br/>
-        <span data-bind="text: DocumentTypeGlobals[doc_type] || doc_type"></span>
-        <!-- ko if: hue_description -->
-        <br/><br/><span data-bind="text: hue_description"></span>
-        <!-- /ko -->
+  <script type="text/html" id="inline-autocomplete-template">
+    <div class="inline-autocomplete-container">
+      <div>
+        <input class="inline-autocomplete-input" autocorrect="off" autocapitalize="off" spellcheck="false" type="text" data-bind="attr: { 'placeHolder' : hasFocus() ? '' : placeHolder }, textInput: searchInput, hasFocus: hasFocus, clearable: { value: searchInput, onClear: onClear }">
+        <input class="inline-autocomplete-autocomplete" disabled type="text" data-bind="value: inlineAutocomplete">
       </div>
-
     </div>
   </script>
 
+  <script type="text/javascript">
+    (function () {
+
+      var InlineAutocomplete = function (params) {
+        var self = this;
+        self.disposals = [];
+
+        self.placeHolder = params.placeHolder || '${ _('Filter...') }';
+        self.hasFocus = params.hasFocus || ko.observable();
+        self.querySpec = params.querySpec;
+        self.autocompleteFromEntries = params.autocompleteFromEntries || function () {};
+        self.facets = params.facets || [];
+        self.knownFacetValues = params.knownFacetValues || {};
+        self.uniqueFacets = !!params.uniqueFacets;
+
+        self.searchInput = ko.observable('');
+        self.inlineAutocomplete = ko.observable('');
+        self.lastResult = {};
+
+        self.querySpec({
+          query: '',
+          facets: {},
+          text: []
+        });
+
+        self.onClear = function () {
+          if (params.onClear) {
+            params.onClear();
+          }
+          self.inlineAutocomplete('');
+        };
+
+        if (params.triggerObservable) {
+          var triggerSub = params.triggerObservable.subscribe(function () {
+            self.autocomplete(self.searchInput(), self.inlineAutocomplete);
+          });
+          self.disposals.push(function () {
+            triggerSub.remove();
+          })
+        }
+
+        var inputSub = self.searchInput.subscribe(function (newValue) {
+          if (newValue === '' && self.querySpec() && self.querySpec().query !== '') {
+            self.querySpec({
+              query: '',
+              facets: {},
+              text: []
+            });
+          } else {
+            // TODO: Get cursor position and split to before and after
+            self.lastResult = globalSearchParser.parseGlobalSearch(newValue, '');
+            if (hueDebug && hueDebug.showGlobalSearchParseResults) {
+              console.log(self.lastResult);
+            }
+            var querySpec = { query: newValue };
+            if (self.lastResult.facets) {
+              querySpec.facets = self.lastResult.facets
+            }
+            if (self.lastResult.text) {
+              querySpec.text = self.lastResult.text;
+            }
+            self.querySpec(querySpec);
+          }
+
+          if (newValue === '') {
+            self.inlineAutocomplete('');
+          } else if (self.inlineAutocomplete() === newValue || self.inlineAutocomplete().indexOf(newValue) !== 0) {
+            self.autocomplete(newValue, self.inlineAutocomplete);
+          } else if (self.inlineAutocomplete().indexOf(newValue) === 0) {
+            var newAutocomp = self.inlineAutocomplete();
+            while (newAutocomp.lastIndexOf(' ') >= newValue.length) {
+              newAutocomp = newAutocomp.substring(0, newAutocomp.lastIndexOf(' '));
+            }
+            if (newAutocomp !== self.inlineAutocomplete()) {
+              self.inlineAutocomplete(newAutocomp);
+            }
+          }
+        });
+
+        self.disposals.push(function () {
+          inputSub.dispose();
+        });
+
+        var onKeyDown = function (event) {
+          if (!self.hasFocus()) {
+            return;
+          }
+          if (event.keyCode === 32 && event.ctrlKey) { // Ctrl-Space
+            self.autocomplete(self.searchInput(), self.inlineAutocomplete);
+            return;
+          }
+          if (event.keyCode === 39 && self.inlineAutocomplete() !== '' && self.inlineAutocomplete() !== self.searchInput()) { // Right arrow
+            // TODO: Check that cursor is last
+            self.searchInput(self.inlineAutocomplete());
+            return;
+          }
+          if (event.keyCode === 9 && self.inlineAutocomplete() !== self.searchInput()) { // Tab
+            self.searchInput(self.inlineAutocomplete());
+            event.preventDefault();
+          }
+        };
+
+        self.disposals.push(function () {
+          $(document).off('keydown', onKeyDown);
+        });
+
+        var focusSub = self.hasFocus.subscribe(function (newVal) {
+          if (!newVal) {
+            self.inlineAutocomplete('');
+            $(document).off('keydown', onKeyDown);
+          } else if (self.searchInput() !== '') {
+            self.autocomplete(self.searchInput(), self.inlineAutocomplete);
+            $(document).on('keydown', onKeyDown);
+          } else {
+            $(document).on('keydown', onKeyDown);
+          }
+        });
+
+        self.disposals.push(function () {
+          focusSub.dispose();
+        });
+      };
+
+      InlineAutocomplete.prototype.dispose = function () {
+        var self = this;
+        while (self.disposals.length) {
+          self.disposals.pop()();
+        }
+      };
+
+      InlineAutocomplete.prototype.autocomplete = function (text, callback) {
+        var self = this;
+        if (!self.lastResult) {
+          callback('');
+          return;
+        }
+
+        var partial, nonPartial;
+        var partialMatch = text.match(/([^:\s]+)$/i);
+        if (partialMatch) {
+          partial = partialMatch[0];
+          nonPartial = text.substring(0, text.length - partial.length);
+        } else {
+          partial = '';
+          nonPartial = text;
+        }
+
+        var newAutocomplete = '';
+        var partialLower = partial.toLowerCase();
+        if (self.lastResult.suggestFacets) {
+          var existingFacetIndex = {};
+          if (self.uniqueFacets && self.lastResult.facets) {
+            Object.keys(self.lastResult.facets).forEach(function (facet) {
+              existingFacetIndex[facet.toLowerCase()] = true;
+            })
+          }
+
+          var suggestion = nonPartial + partial;
+          var isLowerCase = suggestion.length > 0 && suggestion.toLowerCase() === suggestion;
+          self.facets.every(function (facet) {
+            if (self.uniqueFacets && existingFacetIndex[facet]) {
+              return true;
+            }
+            if (partial.length === 0 || facet.indexOf(partialLower) === 0) {
+              var remainder = facet.substring(partial.length);
+              suggestion += isLowerCase ? remainder : remainder.toUpperCase();
+              suggestion += ':';
+              newAutocomplete = suggestion;
+              return false;
+            }
+            return true;
+          });
+        }
+
+        if (self.lastResult.suggestFacetValues && !newAutocomplete) {
+          var facetValues = ko.unwrap(self.knownFacetValues);
+          if (facetValues[self.lastResult.suggestFacetValues.toLowerCase()]) {
+            Object.keys(facetValues[self.lastResult.suggestFacetValues.toLowerCase()]).every(function (value) {
+              if (value.toLowerCase().indexOf(partialLower) === 0) {
+                newAutocomplete = nonPartial + partial + value.substring(partial.length, value.length);
+                return false;
+              }
+              return true;
+            });
+          }
+        }
+
+        if (partial !== '' && self.lastResult.suggestResults && !newAutocomplete) {
+          newAutocomplete = self.autocompleteFromEntries(nonPartial, partial);
+        }
+
+        if (!newAutocomplete) {
+          callback('');
+        } else if (newAutocomplete !== self.inlineAutocomplete()) {
+          callback(newAutocomplete);
+        }
+      };
+
+      ko.components.register('inline-autocomplete', {
+        viewModel: InlineAutocomplete,
+        template: {element: 'inline-autocomplete-template'}
+      });
+    })();
+  </script>
+
   <script type="text/html" id="hue-global-search-template">
-    <div class="global-search-input-container">
-      <div>
-        <input class="global-search-input" type="text" data-bind="attr: { 'placeHolder' : searchHasFocus() ? '' : '${ _ko('Search data and saved documents...') }' }, textInput: searchInput, hasFocus: searchHasFocus, clearable: { value: searchInput, onClear: function () { inlineAutocomplete(''); searchResultVisible(false); } }">
-        <input class="global-search-autocomplete" disabled type="text" data-bind="value: inlineAutocomplete">
-      </div>
-    </div>
+    <!-- ko component: {
+      name: 'inline-autocomplete',
+      params: {
+        hasFocus: searchHasFocus,
+        placeHolder: '${ _ko('Search data and saved documents...') }',
+        querySpec: querySpec,
+        onClear: function () { selectedIndex(null); searchResultVisible(false); },
+        facets: ['type', 'tags'],
+        knownFacetValues: knownFacetValues,
+        autocompleteFromEntries: autocompleteFromEntries,
+        triggerObservable: searchResultCategories
+      }
+    } --><!-- /ko -->
     <!-- ko if: searchResultVisible-->
-    <div class="global-search-results" data-bind="onClickOutside: onResultClickOutside, css: { 'global-search-empty' : searchResultCategories().length === 0 }">
+    <div class="global-search-results" data-bind="onClickOutside: onResultClickOutside, css: { 'global-search-empty' : searchResultCategories().length === 0 }, style: { 'height' : heightWhenDragging }">
       <!-- ko hueSpinner: { spin: loading() && searchResultCategories().length === 0 , center: true, size: 'large' } --><!-- /ko -->
       <!-- ko if: !loading() && searchResultCategories().length === 0 -->
         <div>${ _('No results found.') }</div>
@@ -648,18 +888,15 @@ from desktop.views import _ko
             <li data-bind="multiClick: {
                 click: function () { $parents[1].resultSelected($parentContext.$index(), $index()) },
                 dblClick: function () { $parents[1].resultSelected($parentContext.$index(), $index()); $parents[1].openResult(); }
-              }, html: label, css: { 'selected': $parents[1].selectedResult() === $data }"></li>
+              }, html: label, css: { 'selected': $parents[1].selectedResult() === $data }, draggableText: { text: draggable, meta: draggableMeta }"></li>
           </ul>
         </div>
       </div>
-      <div class="global-search-preview">
+      <div class="global-search-preview" style="overflow: auto;">
         <!-- ko with: selectedResult -->
           <!-- ko switch: type -->
-            <!-- ko case: ['database', 'table', 'view', 'field']  -->
-              <!-- ko component: { name: 'sql-context-contents-global-search', params: { data: data, globalSearch: $parent } } --><!-- /ko -->
-            <!-- /ko -->
-            <!-- ko case: 'document'  -->
-              <!-- ko template: 'search-document-context-template' --><!-- /ko -->
+            <!-- ko case: ['database', 'document', 'field', 'table', 'view']  -->
+              <!-- ko component: { name: 'context-popover-contents-global-search', params: { data: data, globalSearch: $parent } } --><!-- /ko -->
             <!-- /ko -->
             <!-- ko case: $default -->
               <pre data-bind="text: ko.mapping.toJSON($data)"></pre>
@@ -675,25 +912,19 @@ from desktop.views import _ko
   <script type="text/javascript">
     (function () {
 
-      var FACETS = [
-        'type', 'tags'
-      ];
-
       var GlobalSearch = function (params) {
         var self = this;
         self.apiHelper = ApiHelper.getInstance();
-        self.lastNonPartial = null;
-        self.lastResult = {};
-        self.knownFacetValues = {};
+        self.knownFacetValues = ko.observable({});
 
         self.autocompleteThrottle = -1;
         self.fetchThrottle = -1;
 
         self.searchHasFocus = ko.observable(false);
-        self.searchInput = ko.observable('');
-        self.inlineAutocomplete = ko.observable('');
+        self.querySpec = ko.observable();
         self.searchActive = ko.observable(false);
         self.searchResultVisible = ko.observable(false);
+        self.heightWhenDragging = ko.observable(null);
         self.searchResultCategories = ko.observableArray([]);
         self.selectedIndex = ko.observable();
         self.loading = ko.observable(false);
@@ -704,31 +935,68 @@ from desktop.views import _ko
           }
         });
 
-        self.searchInput.subscribe(function (newValue) {
-          if (self.inlineAutocomplete().indexOf(newValue) !== 0 || newValue === '') {
-            self.inlineAutocomplete(newValue);
+        huePubSub.subscribe('context.popover.show.in.assist', function () {
+          window.setTimeout(function () {
+            if (self.searchResultVisible()) {
+              self.close();
+            }
+          }, 0);
+        });
+
+        huePubSub.subscribe('draggable.text.started', function (meta) {
+          // We have to set the height to 0 when dragging a text, just closing the results will break the
+          // jQuery draggable plugin
+          if (meta.source === 'globalSearch') {
+            huePubSub.subscribeOnce('draggable.text.stopped', function () {
+              self.heightWhenDragging(null);
+              self.close();
+            });
+            self.heightWhenDragging(0);
           }
-          if (newValue !== '') {
-            self.triggerAutocomplete(newValue);
+        });
+
+        self.querySpec.subscribe(function (newValue) {
+          if (newValue && newValue.query !== '') {
             window.clearTimeout(self.fetchThrottle);
             self.fetchThrottle = window.setTimeout(function () {
-              self.fetchResults(newValue);
+              self.fetchResults(newValue.query);
             }, 500);
           } else {
+            self.selectedIndex(undefined);
             self.searchResultCategories([]);
           }
         });
 
+        self.autocompleteFromEntries = function (lastNonPartial, partial) {
+          var result;
+          var partialLower = partial.toLowerCase();
+          self.searchResultCategories().every(function (category) {
+            return category.result.every(function (entry) {
+              if (category.type === 'documents' && entry.data.originalName.toLowerCase().indexOf(partialLower) === 0) {
+                result = lastNonPartial + partial + entry.data.originalName.substring(partial.length, entry.data.originalName.length);
+                return false;
+              } else if (entry.data.selectionName && entry.data.selectionName.toLowerCase().indexOf(partialLower) === 0) {
+                result = lastNonPartial + partial + entry.data.selectionName.substring(partial.length, entry.data.selectionName.length);
+                return false;
+              }
+              return true;
+            });
+          });
+          return result;
+        };
+
         self.searchHasFocus.subscribe(function (newVal) {
-          if (!newVal) {
-            self.inlineAutocomplete('');
-          } else if (self.searchInput() !== '') {
-            self.triggerAutocomplete(self.searchInput());
+          if (newVal && self.querySpec() && self.querySpec().query !== '') {
+            if (!self.searchResultVisible()) {
+              self.searchResultVisible(true);
+            }
           }
         });
 
         self.searchResultVisible.subscribe(function (newVal) {
-          if (!newVal) {
+          if (newVal) {
+            self.heightWhenDragging(null);
+          } else {
             self.selectedIndex(undefined);
           }
         });
@@ -738,24 +1006,10 @@ from desktop.views import _ko
           if (!self.searchHasFocus() && !self.searchResultVisible()) {
             return;
           }
-          if (event.keyCode === 32 && event.ctrlKey) { // Ctrl-Space
-            self.triggerAutocomplete(self.searchInput(), true);
-            return;
-          }
-          if (event.keyCode === 39 && self.inlineAutocomplete() !== '' && self.inlineAutocomplete() !== self.searchInput()) { // Right arrow
-            // TODO: Check that cursor is last
-            self.searchInput(self.inlineAutocomplete());
-            return;
-          }
-          if (event.keyCode === 9 && self.inlineAutocomplete() !== self.searchInput()) { // Tab
-            self.searchInput(self.inlineAutocomplete());
-            event.preventDefault();
-            return;
-          }
 
-          if (event.keyCode === 13 && self.searchHasFocus() && self.searchInput() !== '') {
+          if (event.keyCode === 13 && self.searchHasFocus() && self.querySpec() && self.querySpec().query !== '') {
             window.clearTimeout(self.fetchThrottle);
-            self.fetchResults(self.searchInput());
+            self.fetchResults(self.querySpec().query);
             return;
           }
 
@@ -795,117 +1049,7 @@ from desktop.views import _ko
       GlobalSearch.prototype.close = function () {
         var self = this;
         self.searchResultVisible(false);
-        self.searchInput('');
-      };
-
-      GlobalSearch.prototype.updateInlineAutocomplete = function (partial) {
-        var self = this;
-        var newAutocomplete = '';
-        var partialLower = partial.toLowerCase();
-        if (self.lastResult.suggestFacets) {
-          var existingFacetIndex = {};
-          if (self.lastResult.facets) {
-            self.lastResult.facets.forEach(function (facet) {
-              existingFacetIndex[facet.toLowerCase()] = true;
-            })
-          }
-          // TODO: Do we want to suggest facets on empty by default?
-##           if (partial === '') {
-##             FACETS.every(function (facet) {
-##               if (existingFacetIndex[facet]) {
-##                 return true;
-##               }
-##               newAutocomplete = self.lastNonPartial + facet + ':';
-##               return false;
-##             })
-##           } else
-          if (partial !== '') {
-            var lowerCase = partial.length !== '' && partialLower[partialLower.length - 1] === partial[partial.length - 1];
-            var suggestion = self.lastNonPartial + partial;
-            FACETS.every(function (facet) {
-              if (existingFacetIndex[facet]) {
-                return true;
-              }
-              if (facet.indexOf(partialLower) === 0) {
-                var remainder = facet.substring(partial.length);
-                suggestion += lowerCase ? remainder : remainder.toUpperCase();
-                suggestion += ':';
-                newAutocomplete = suggestion;
-                return false;
-              }
-              return true;
-            });
-          }
-        }
-
-        if (self.lastResult.suggestFacetValues && !newAutocomplete) {
-          if (self.knownFacetValues[self.lastResult.suggestFacetValues.toLowerCase()]) {
-            Object.keys(self.knownFacetValues[self.lastResult.suggestFacetValues.toLowerCase()]).every(function (value) {
-              if (value.toLowerCase().indexOf(partialLower) === 0) {
-                newAutocomplete = self.lastNonPartial + partial + value.substring(partial.length, value.length);
-                return false;
-              }
-              return true;
-            });
-          }
-        }
-
-        if (partial !== '' && self.lastResult.suggestResults && !newAutocomplete) {
-          self.searchResultCategories().every(function (category) {
-            return category.result.every(function (entry) {
-              if (category.type === 'documents' && entry.data.originalName.toLowerCase().indexOf(partialLower) === 0) {
-                newAutocomplete = self.lastNonPartial + partial + entry.data.originalName.substring(partial.length, entry.data.originalName.length);
-                return false;
-              } else if (entry.data.selectionName && entry.data.selectionName.toLowerCase().indexOf(partialLower) === 0) {
-                newAutocomplete = self.lastNonPartial + partial + entry.data.selectionName.substring(partial.length, entry.data.selectionName.length);
-                return false;
-              }
-              return true;
-            });
-          });
-        }
-
-        if (!newAutocomplete) {
-          if (self.inlineAutocomplete() !== '') {
-            self.inlineAutocomplete('');
-          }
-        } else if (newAutocomplete !== self.inlineAutocomplete()) {
-          self.inlineAutocomplete(newAutocomplete);
-        }
-      };
-
-      GlobalSearch.prototype.triggerAutocomplete = function (newValue, direct) {
-        var self = this;
-        var partial, nonPartial;
-        var partialMatch = newValue.match(/([^:\s]+)$/i);
-        if (partialMatch) {
-          partial = partialMatch[0];
-          nonPartial = newValue.substring(0, newValue.length - partial.length);
-        } else {
-          partial = '';
-          nonPartial = newValue;
-        }
-
-        if (self.lastNonPartial && self.lastNonPartial === nonPartial) {
-          self.updateInlineAutocomplete(partial);
-          return;
-        }
-
-        window.clearTimeout(self.autocompleteThrottle);
-        self.autocompleteThrottle = window.setTimeout(function () {
-          self.lastNonPartial = nonPartial;
-
-          // TODO: Get cursor position and split to before and after
-          self.lastResult = globalSearchParser.parseGlobalSearch(newValue, '');
-          if (hueDebug && hueDebug.showGlobalSearchParseResults) {
-            console.log(self.lastResult);
-          }
-          if (self.lastResult) {
-            self.updateInlineAutocomplete(partial);
-          } else {
-            self.lastNonPartial = null;
-          }
-        }, direct ? 0 : 200);
+        self.querySpec({});
       };
 
       GlobalSearch.prototype.openResult = function () {
@@ -972,6 +1116,10 @@ from desktop.views import _ko
           data.results.forEach(function (doc) {
             docCategory.result.push({
               label: doc.hue_name,
+              draggable: doc.originalName,
+              draggableMeta: {
+                source: 'globalSearch'
+              },
               type: 'document',
               data: doc
             })
@@ -981,17 +1129,17 @@ from desktop.views import _ko
           }
           self.selectedIndex(undefined);
           self.searchResultCategories(categories);
-          self.triggerAutocomplete(query, true);
         });
 
         navPromise.done(function (data) {
           if (data.facets) {
+            var facetValues = ko.unwrap(self.knownFacetValues);
             Object.keys(data.facets).forEach(function (facet) {
-              if (!self.knownFacetValues[facet] && Object.keys(data.facets[facet]).length > 0) {
-                self.knownFacetValues[facet] = {};
+              if (!facetValues[facet] && Object.keys(data.facets[facet]).length > 0) {
+                facetValues[facet] = {};
               }
               Object.keys(data.facets[facet]).forEach(function (facetKey) {
-                self.knownFacetValues[facet][facetKey] = data.facets[facet][facetKey];
+                facetValues[facet][facetKey] = data.facets[facet][facetKey];
               });
             })
           }
@@ -1008,8 +1156,32 @@ from desktop.views import _ko
                 };
                 newCategories[typeLower] = category;
               }
+              var meta = {
+                source: 'globalSearch'
+              };
+              if (result.type.toLowerCase() === 'database') {
+                meta.type = 'sql';
+                meta.database = result.originalName
+              } else if (result.type.toLowerCase() === 'table') {
+                meta.type = 'sql';
+                var split = result.originalName.split('.');
+                if (split.length == 2) {
+                  meta.database = split[0];
+                  meta.table = split[1];
+                }
+              } else if (result.type.toLowerCase() === 'field') {
+                meta.type = 'sql';
+                var split = result.originalName.split('.');
+                if (split.length >= 3) {
+                  meta.database = split[0];
+                  meta.table = split[1];
+                  meta.column = split[2];
+                }
+              }
               category.result.push({
                 label: result.hue_name || result.originalName,
+                draggable: result.originalName,
+                draggableMeta: meta,
                 type: typeLower,
                 data: result
               })
@@ -1021,7 +1193,6 @@ from desktop.views import _ko
           });
           self.selectedIndex(undefined);
           self.searchResultCategories(categories);
-          self.triggerAutocomplete(query, true);
         });
 
         $.when.apply($, [navPromise, hueDocsPromise]).always(function () {
@@ -1036,32 +1207,14 @@ from desktop.views import _ko
     })();
   </script>
 
-  <script type="text/html" id="hue-global-search-old-template">
-    <input placeholder="${ _('Search data and saved documents...') }" type="text"
-           data-bind="autocomplete: {
-                source: searchAutocompleteSource,
-                itemTemplate: 'top-search-autocomp-item',
-                noMatchTemplate: 'top-search-autocomp-no-match',
-                classPrefix: 'nav-',
-                showOnFocus: true,
-                closeOnEnter: false,
-                onSelect: mainSearchSelect,
-                reopenPattern: /.*:$/
-              },
-              hasFocus: searchHasFocus,
-              clearable: { value: searchInput, onClear: function () { searchActive(false); huePubSub.publish('autocomplete.close'); } },
-              textInput: searchInput,
-              valueUpdate: 'afterkeydown'">
-  </script>
-
   <script type="text/html" id="top-search-autocomp-item">
     <a href="javascript:void(0);">
-      <div class="nav-autocomplete-item-link">
-        <div class="nav-search-result-icon"><i class="fa fa-fw" data-bind="css: icon"></i></div>
-        <div class="nav-search-result-text">
-          <div class="nav-search-result-header" data-bind="html: label, style: { 'padding-top': description ? 0 : '9px' }"></div>
+      <div>
+        <div><i class="fa fa-fw" data-bind="css: icon"></i></div>
+        <div>
+          <div data-bind="html: label, style: { 'padding-top': description ? 0 : '9px' }"></div>
           <!-- ko if: description -->
-          <div class="nav-search-result-description" data-bind="html: description"></div>
+          <div data-bind="html: description"></div>
           <!-- /ko -->
         </div>
       </div>
@@ -1069,128 +1222,8 @@ from desktop.views import _ko
   </script>
 
   <script type="text/html" id="top-search-autocomp-no-match">
-    <div class="nav-autocomplete-item-link" style="height: 30px;">
-      <div class="nav-autocomplete-empty">${ _('No match found') }</div>
+    <div style="height: 30px;">
+      <div>${ _('No match found') }</div>
     </div>
-  </script>
-
-  <script type="text/javascript">
-    (function () {
-
-      var SEARCH_FACET_ICON = 'fa-tags';
-      var SEARCH_TYPE_ICONS = {
-        'DATABASE': 'fa-database',
-        'TABLE': 'fa-table',
-        'VIEW': 'fa-eye',
-        'FIELD': 'fa-columns',
-        'PARTITION': 'fa-th',
-        'SOURCE': 'fa-server',
-        'OPERATION': 'fa-cogs',
-        'OPERATION_EXECUTION': 'fa-cog',
-        'DIRECTORY': 'fa-folder-o',
-        'FILE': 'fa-file-o',
-        'SUB_OPERATION': 'fa-code-fork',
-        'COLLECTION': 'fa-search',
-        'HBASE': 'fa-th-large',
-        'HUE': 'fa-file-o'
-      };
-
-      var GlobalSearchOld = function (params) {
-        var self = this;
-        self.apiHelper = ApiHelper.getInstance();
-        self.searchHasFocus = ko.observable(false);
-        self.searchInput = ko.observable();
-        self.searchActive = ko.observable(false);
-      };
-
-      GlobalSearchOld.prototype.mainSearchSelect = function (entry) {
-        if (entry.data && entry.data.link) {
-          huePubSub.publish('open.link', entry.data.link);
-        } else if (!/:\s*$/.test(entry.value)) {
-          huePubSub.publish('assist.show.sql');
-          huePubSub.publish('assist.db.search', entry.value);
-        }
-      };
-
-      GlobalSearchOld.prototype.searchAutocompleteSource = function (request, callback) {
-        var apiHelper = ApiHelper.getInstance();
-        // TODO: Extract complete contents to common module (shared with nav search autocomplete)
-        var facetMatch = request.term.match(/([a-z]+):\s*(\S+)?$/i);
-        var isFacet = facetMatch !== null;
-        var partialMatch = isFacet ? null : request.term.match(/\S+$/);
-        var partial = isFacet && facetMatch[2] ? facetMatch[2] : (partialMatch ? partialMatch[0] : '');
-        var beforePartial = request.term.substring(0, request.term.length - partial.length);
-
-        apiHelper.globalSearchAutocomplete({
-          query:  request.term,
-          successCallback: function (data) {
-            var values = [];
-            var facetPartialRe = new RegExp(partial.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&"), 'i'); // Protect for 'tags:*axe'
-
-            if (typeof data.resultsHuedocuments !== 'undefined') {
-              data.resultsHuedocuments.forEach(function (result) {
-                values.push({ data: { label: result.hue_name, icon: SEARCH_TYPE_ICONS[result.type],  description: result.hue_description, link: result.link }, value: beforePartial + result.originalName });
-              });
-            }
-            if (values.length > 0) {
-              values.push({ divider: true });
-            }
-
-            if (isFacet && typeof data.facets !== 'undefined') { // Is typed facet, e.g. type: type:bla
-              var facetInQuery = facetMatch[1];
-              if (typeof data.facets[facetInQuery] !== 'undefined') {
-                $.map(data.facets[facetInQuery], function (count, value) {
-                  if (facetPartialRe.test(value)) {
-                    values.push({ data: { label: facetInQuery + ':' + value, icon: SEARCH_FACET_ICON, description: count }, value: beforePartial + value})
-                  }
-                });
-              }
-            } else {
-              if (typeof data.facets !== 'undefined') {
-                Object.keys(data.facets).forEach(function (facet) {
-                  if (facetPartialRe.test(facet)) {
-                    if (Object.keys(data.facets[facet]).length > 0) {
-                      values.push({ data: { label: facet + ':', icon: SEARCH_FACET_ICON, description: $.map(data.facets[facet], function (key, value) { return value + ' (' + key + ')'; }).join(', ') }, value: beforePartial + facet + ':'});
-                    } else { // Potential facet from the list
-                      values.push({ data: { label: facet + ':', icon: SEARCH_FACET_ICON, description: '' }, value: beforePartial + facet + ':'});
-                    }
-                  } else if (partial.length > 0) {
-                    Object.keys(data.facets[facet]).forEach(function (facetValue) {
-                      if (facetValue.indexOf(partial) !== -1) {
-                        values.push({ data: { label: facet + ':' + facetValue, icon: SEARCH_FACET_ICON, description: facetValue }, value: beforePartial + facet + ':' + facetValue });
-                      }
-                    });
-                  }
-                });
-              }
-            }
-
-
-            if (!facetMatch && typeof data.results !== 'undefined' && data.results.length > 0) {
-              if (values.length > 0) {
-                values.push({ divider: true });
-              }
-              data.results.forEach(function (result) {
-                values.push({ data: { label: result.hue_name, icon: SEARCH_TYPE_ICONS[result.type],  description: result.hue_description }, value: beforePartial + result.originalName });
-              });
-            }
-
-            if (values.length === 0) {
-              values.push({ noMatch: true });
-            }
-            callback(values);
-          },
-          silenceErrors: true,
-          errorCallback: function () {
-            callback([]);
-          }
-        });
-      };
-
-      ko.components.register('hue-global-search-old', {
-        viewModel: GlobalSearchOld,
-        template: {element: 'hue-global-search-old-template'}
-      });
-    })();
   </script>
 </%def>

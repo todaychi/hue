@@ -34,7 +34,7 @@ from django.core.urlresolvers import reverse
 from django.core.servers.basehttp import FileWrapper
 from django.shortcuts import redirect
 from django.utils.translation import ugettext as _
-from django.views.decorators.http import require_http_methods, require_POST
+from django.views.decorators.http import require_POST
 
 import django.views.debug
 
@@ -61,7 +61,6 @@ from desktop.models import Settings, hue_version, _get_apps, UserPreferences, Cl
 LOG = logging.getLogger(__name__)
 
 
-@require_http_methods(['HEAD'])
 def is_alive(request):
   return HttpResponse('')
 
@@ -471,11 +470,21 @@ def get_banner_message(request):
   banner_message = None
   forwarded_host = request.META.get('HTTP_X_FORWARDED_HOST')
 
+  message = None;
+  path_info = request.environ.get("PATH_INFO")
+  if IS_HUE_4.get() and path_info.find("/hue/") < 0 and path_info.find("accounts/login") < 0:
+    url = request.build_absolute_uri("/hue")
+    link = '<a href="%s" style="color: #FFF; font-weight: bold">%s</a>' % (url, url)
+    message = _('You are accessing an older version of Hue, please switch to the latest version: %s.') % link
+
   if HUE_LOAD_BALANCER.get() and HUE_LOAD_BALANCER.get() != [''] and \
     (not forwarded_host or not any(forwarded_host in lb for lb in HUE_LOAD_BALANCER.get())):
-    banner_message = '<div style="padding: 4px; text-align: center; background-color: #003F6C; height: 24px; color: #DBE8F1">%s: %s</div>' % \
-      (_('You are accessing a non-optimized Hue, please switch to one of the available addresses'),
-      ", ".join(['<a href="%s" style="color: #FFF; font-weight: bold">%s</a>' % (host, host) for host in HUE_LOAD_BALANCER.get()]))
+    message = _('You are accessing a non-optimized Hue, please switch to one of the available addresses: %s') % \
+      (", ".join(['<a href="%s" style="color: #FFF; font-weight: bold">%s</a>' % (host, host) for host in HUE_LOAD_BALANCER.get()]))
+
+  if message:
+    banner_message = '<div style="padding: 4px; text-align: center; background-color: #003F6C; height: 24px; color: #DBE8F1">%s</div>' % message
+
   return banner_message
 
 def commonshare():

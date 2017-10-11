@@ -61,13 +61,14 @@ try:
   from impala import api   # Force checking if Impala is enabled
   from impala.conf import CONFIG_WHITELIST as impala_settings, SSL as impala_ssl_conf
   from impala.impala_flags import get_webserver_certificate_file
-  from impala.server import get_api as get_impalad_api, ImpalaDaemonApiException
+  from impala.server import get_api as get_impalad_api, ImpalaDaemonApiException, _get_impala_server_url
 except ImportError, e:
   LOG.warn("Impala app is not enabled")
   impala_settings = None
 
 try:
   from jobbrowser.views import get_job
+  from jobbrowser.conf import ENABLE_QUERY_BROWSER
 except (AttributeError, ImportError), e:
   LOG.warn("Job Browser app is not enabled")
 
@@ -186,7 +187,7 @@ class HS2Api(Api):
     response['properties'] = properties
 
     if lang == 'impala':
-      http_addr = self._get_impala_server_url(session)
+      http_addr = _get_impala_server_url(session)
       response['http_addr'] = http_addr
 
     return response
@@ -413,6 +414,14 @@ class HS2Api(Api):
         'started': job.get('started', False),
         'finished': job.get('finished', False)
       } for job in jobs_with_state]
+    elif snippet['type'] == 'impala' and ENABLE_QUERY_BROWSER.get():
+      query_id = "%x:%x" % struct.unpack(b"QQ", snippet['result']['handle']['guid'])
+      jobs = [{
+        'name': query_id,
+        'url': '/hue/jobbrowser#!id=%s' % query_id,
+        'started': True,
+        'finished': False
+      }]
 
     return jobs
 
@@ -797,7 +806,7 @@ DROP TABLE IF EXISTS `%(table)s`;
 
     query_id = self._get_impala_query_id(snippet)
     session = Session.objects.get_session(self.user, application='impala')
-    server_url = self._get_impala_server_url(session)
+    server_url = _get_impala_server_url(session)
     if query_id:
       LOG.info("Attempting to get Impala query profile at server_url %s for query ID: %s" % (server_url, query_id))
 
@@ -822,14 +831,6 @@ DROP TABLE IF EXISTS `%(table)s`;
     else:
       LOG.warn('Snippet does not contain a valid result handle, cannot extract Impala query ID.')
     return guid
-
-
-  def _get_impala_server_url(self, session):
-    impala_settings = session.get_formatted_properties()
-    http_addr = next((setting['value'] for setting in impala_settings if setting['key'].lower() == 'http_addr'), None)
-    # Remove scheme if found
-    http_addr = http_addr.replace('http://', '').replace('https://', '')
-    return ('https://' if get_webserver_certificate_file() else 'http://') + http_addr
 
 
   def _get_impala_query_profile(self, server_url, query_id):

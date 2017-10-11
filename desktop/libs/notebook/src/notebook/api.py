@@ -311,7 +311,7 @@ def get_logs(request):
 
 def _save_notebook(notebook, user):
   notebook_type = notebook.get('type', 'notebook')
-  save_as = True
+  save_as = False
 
   if notebook.get('parentSavedQueryUuid'): # We save into the original saved query, not into the query history
     notebook_doc = Document2.objects.get_by_uuid(user=user, uuid=notebook['parentSavedQueryUuid'])
@@ -320,7 +320,7 @@ def _save_notebook(notebook, user):
   else:
     notebook_doc = Document2.objects.create(name=notebook['name'], uuid=notebook['uuid'], type=notebook_type, owner=user)
     Document.objects.link(notebook_doc, owner=notebook_doc.owner, name=notebook_doc.name, description=notebook_doc.description, extra=notebook_type)
-    save_as = False
+    save_as = True
 
     if notebook.get('directoryUuid'):
       notebook_doc.parent_directory = Document2.objects.get_by_uuid(user=user, uuid=notebook.get('directoryUuid'), perm_type='write')
@@ -627,10 +627,12 @@ def export_result(request):
   destination = json.loads(request.POST.get('destination', ''))
   overwrite = json.loads(request.POST.get('overwrite', 'false'))
   is_embedded = json.loads(request.POST.get('is_embedded', 'false'))
+  start_time = json.loads(request.POST.get('start_time', '-1'))
 
   api = get_api(request, snippet)
 
   if data_format == 'hdfs-file': # Blocking operation, like downloading
+    destination = request.fs.netnormpath(destination)
     if request.fs.isdir(destination):
       if notebook.get('name'):
         destination += '/%(name)s.csv' % notebook
@@ -657,6 +659,7 @@ def export_result(request):
         status='ready-execute',
         database=snippet['database'],
         on_success_url=success_url,
+        last_executed=start_time,
         is_task=True
       )
       response = task.execute(request)
@@ -670,6 +673,7 @@ def export_result(request):
       'allowed': True
     }
   elif data_format == 'hdfs-directory':
+    destination = request.fs.netnormpath(destination)
     if is_embedded:
       sql, success_url = api.export_large_data_to_hdfs(notebook, snippet, destination)
 
@@ -681,6 +685,7 @@ def export_result(request):
         status='ready-execute',
         database=snippet['database'],
         on_success_url=success_url,
+        last_executed=start_time,
         is_task=True
       )
       response = task.execute(request)
@@ -721,11 +726,11 @@ def export_result(request):
       if live_indexing:
         file_format['inputFormat'] = 'hs2_handle'
         file_format['fetch_handle'] = lambda rows, start_over: get_api(request, snippet).fetch_result(notebook, snippet, rows=rows, start_over=start_over)
-        response['rowcount'] = _index(request, file_format, destination, query=notebook['uuid'])
+        response['rowcount'] = _index(request, file_format, destination, query=notebook['uuid'], start_time=start_time)
         response['watch_url'] = reverse('search:browse', kwargs={'name': destination})
         response['status'] = 0
       else:
-        response = _index(request, file_format, destination, query=notebook['uuid'])
+        response = _index(request, file_format, destination, query=notebook['uuid'], start_time=start_time)
     else:
       notebook_id = notebook['id'] or request.GET.get('editor', request.GET.get('notebook'))
       response['watch_url'] = reverse('notebook:execute_and_watch') + '?action=index_query&notebook=' + str(notebook_id) + '&snippet=0&destination=' + destination
